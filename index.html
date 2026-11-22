@@ -167,6 +167,21 @@
   <div id="vista-inserimento" style="display: contents">
 
     <section>
+      <p class="label">Scontrino</p>
+      <div class="gruppo">
+        <div class="riga">
+          <label for="documento">N. documento</label>
+          <input id="documento" inputmode="numeric" placeholder="0000-0000" maxlength="9" autocomplete="off">
+        </div>
+        <div class="riga">
+          <label for="data-scontrino">Data scontrino</label>
+          <input type="date" id="data-scontrino">
+        </div>
+      </div>
+      <p class="nota" id="nota-scontrino">Solo se hai già pagato: in fondo allo scontrino, «DOCUMENTO N. 0026-0056».</p>
+    </section>
+
+    <section>
       <p class="label">Negozio</p>
       <div class="gruppo">
         <div class="riga">
@@ -273,7 +288,7 @@
 
   /* ---------- memoria sul telefono (può mancare: la pagina funziona lo stesso) ---------- */
 
-  var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "" };
+  var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "", documento: "", dataScontrino: "" };
   try {
     var salvato = JSON.parse(localStorage.getItem(MEMORIA) || "null");
     if (salvato && typeof salvato === "object") { for (var k in stato) if (salvato[k] !== undefined) stato[k] = salvato[k]; }
@@ -454,6 +469,30 @@
   }
   mostraNegozi();
 
+  /* ---------- scontrino: numero del documento Esselunga, 4 cifre - 4 cifre ---------- */
+
+  var DOCUMENTO_OK = /^\d{4}-\d{4}$/;
+  function oggi() { var d = new Date(); return d.getFullYear() + "-" + due(d.getMonth() + 1) + "-" + due(d.getDate()); }
+  function controllaDocumento() {
+    var v = stato.documento;
+    if (v && !DOCUMENTO_OK.test(v)) nota("nota-scontrino", "Il numero ha 8 cifre: 4, trattino, 4 (es. 0026-0056).", "allarme");
+    else nota("nota-scontrino", "Solo se hai già pagato: in fondo allo scontrino, «DOCUMENTO N. 0026-0056».");
+    return !v || DOCUMENTO_OK.test(v);
+  }
+  function mostraScontrino() { $("documento").value = stato.documento || ""; $("data-scontrino").value = stato.dataScontrino || ""; }
+  $("documento").oninput = function () {
+    /* solo cifre, il trattino lo metto io dopo la quarta */
+    var c = this.value.replace(/\D/g, "").slice(0, 8);
+    this.value = c.length > 4 ? c.slice(0, 4) + "-" + c.slice(4) : c;
+    stato.documento = this.value;
+    if (DOCUMENTO_OK.test(this.value) && !stato.dataScontrino) { stato.dataScontrino = oggi(); $("data-scontrino").value = stato.dataScontrino; }
+    salva();
+    if (DOCUMENTO_OK.test(this.value) || !this.value) controllaDocumento();
+  };
+  $("documento").onchange = controllaDocumento;
+  $("data-scontrino").onchange = $("data-scontrino").oninput = function () { stato.dataScontrino = this.value; salva(); };
+  mostraScontrino();
+
   /* ---------- fotocamera (stesso motore dello Scanner Dispensa) ---------- */
 
   var camera = $("camera"), msg = $("camera-msg");
@@ -576,6 +615,11 @@
     var neg = $("riep-negozio");
     neg.innerHTML = "<span>Negozio</span>";
     neg.appendChild(document.createTextNode(stato.negozio || "Non indicato"));
+    if (stato.documento || stato.dataScontrino) {
+      var sc = document.createElement("span"); sc.textContent = "Scontrino"; sc.style.marginTop = "10px";
+      neg.appendChild(sc);
+      neg.appendChild(document.createTextNode((stato.documento || "numero non indicato") + (stato.dataScontrino ? " del " + dataIt(stato.dataScontrino) : "")));
+    }
     var lista = $("riep-lista"); lista.innerHTML = "";
     $("btn-invia").disabled = stato.prodotti.length === 0;
     if (stato.prodotti.length === 0) {
@@ -675,6 +719,7 @@
   $("btn-invia").onclick = function () {
     if (inviando || stato.prodotti.length === 0) return;
     if (!stato.chiave) { collega(); return; }
+    if (!controllaDocumento()) { nota("nota-invio", "Il numero dello scontrino non è nel formato 0000-0000: correggilo in alto o cancellalo.", "allarme"); return; }
     if (!stato.negozio && !confirm("Non hai indicato il negozio: senza, sarà difficile abbinare la spesa allo scontrino. Invio lo stesso?")) return;
     inviando = true;
     $("btn-invia").disabled = true;
@@ -682,7 +727,8 @@
     var n = stato.prodotti.length;
     var corpo = {
       chiave: stato.chiave,
-      spesa: { idSpesa: stato.idSpesa, negozio: stato.negozio, oraPrimoProdotto: stato.oraPrimo, oraInvio: adesso() },
+      spesa: { idSpesa: stato.idSpesa, negozio: stato.negozio, oraPrimoProdotto: stato.oraPrimo, oraInvio: adesso(),
+        documento: stato.documento, dataScontrino: stato.dataScontrino },
       prodotti: stato.prodotti.map(function (p) {
         return {
           id: p.id, dataOra: p.dataOra, barcode: p.barcode, pezzi: p.pezzi, quantita: p.quantita, unita: p.unita,
@@ -694,6 +740,7 @@
     chiama(corpo).then(function (d) {
       if (d && d.ok) {
         stato.prodotti = []; stato.idSpesa = ""; stato.oraPrimo = "";
+        stato.documento = ""; stato.dataScontrino = ""; mostraScontrino(); controllaDocumento();
         salva();
         disegnaRiepilogo(); aggiornaConteggio();
         nota("nota-invio", "Inviati " + (d.ricevuti || n) + " prodotti: sono sul foglio. La lista è di nuovo vuota.", "ok");
