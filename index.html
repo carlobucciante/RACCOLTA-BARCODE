@@ -84,6 +84,7 @@
   .riga .piccolo { flex: 0 0 76px; }
   .riga .eur { color: var(--ink-2); flex: none; }
   .riga input[type="date"] { color: var(--ink); }
+  .riga input:disabled { opacity: 0.4; }
   .riga input[type="checkbox"] { flex: none; width: 24px; height: 24px; accent-color: var(--blu); }
   .calcolato { font-size: 12px; color: var(--ink-2); flex: none; }
 
@@ -206,6 +207,14 @@
           <button class="btn-scan" id="btn-camera" type="button">Fotocamera</button>
         </div>
         <div class="riga">
+          <label for="marca">Marca</label>
+          <input id="marca" placeholder="Es. GRANAROLO" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="riga">
+          <label for="alimento">Alimento</label>
+          <input id="alimento" placeholder="Es. LATTE INTERO" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="riga">
           <span class="nome">Pezzi</span>
           <div class="stepper">
             <button type="button" id="meno" aria-label="un pezzo in meno">−</button>
@@ -217,11 +226,13 @@
           <label for="quantita">Quantità</label>
           <input id="quantita" inputmode="decimal" placeholder="Es. 500" autocomplete="off">
           <select id="unita" class="piccolo" aria-label="unità">
-            <option value="G">g</option>
+            <option value="G">gr</option>
             <option value="KG">kg</option>
             <option value="ML">ml</option>
             <option value="LT">lt</option>
             <option value="PZ">pezzi</option>
+            <option value="UOVA">uova</option>
+            <option value="ROTOLI">rotoli</option>
           </select>
         </div>
         <div class="riga">
@@ -232,9 +243,9 @@
         <div class="riga">
           <label for="scontato">Scontato</label>
           <input type="checkbox" id="scontato">
-          <select id="sconto-perc" disabled aria-label="percentuale di sconto">
-            <option value="">% sconto</option>
-          </select>
+          <input id="sconto-perc" list="percentuali" inputmode="decimal" placeholder="scegli o scrivi" autocomplete="off" disabled aria-label="percentuale di sconto">
+          <datalist id="percentuali"></datalist>
+          <span class="eur">%</span>
         </div>
         <div class="riga">
           <label for="prezzo-kg" id="label-kg">Prezzo al kg</label>
@@ -260,6 +271,7 @@
   <div id="vista-riepilogo" style="display: contents" hidden>
     <div class="negozio-riep" id="riep-negozio"></div>
     <div id="riep-lista" style="display: flex; flex-direction: column; gap: 12px"></div>
+    <div class="negozio-riep" id="riep-totale" hidden></div>
     <section>
       <button class="primary largo" id="btn-invia" type="button">Invia a n8n</button>
       <p class="nota" id="nota-invio"></p>
@@ -288,7 +300,7 @@
 
   /* ---------- memoria sul telefono (può mancare: la pagina funziona lo stesso) ---------- */
 
-  var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "", documento: "", dataScontrino: "" };
+  var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "", documento: "", dataScontrino: "", catalogo: {} };
   try {
     var salvato = JSON.parse(localStorage.getItem(MEMORIA) || "null");
     if (salvato && typeof salvato === "object") { for (var k in stato) if (salvato[k] !== undefined) stato[k] = salvato[k]; }
@@ -338,9 +350,15 @@
 
   /* ---------- modulo del prodotto ---------- */
 
+  /* sconto: menu con le percentuali solite, ma si può scrivere qualsiasi valore (es. 45 o 12,5) */
   PERCENTUALI.forEach(function (p) {
-    var o = document.createElement("option"); o.value = String(p); o.textContent = p + "%"; $("sconto-perc").appendChild(o);
+    var o = document.createElement("option"); o.value = String(p); $("percentuali").appendChild(o);
   });
+  function percentuale() { var n = numero($("sconto-perc").value); return n != null && n > 0 && n < 100 ? n : null; }
+  $("sconto-perc").oninput = function () {
+    if (this.value.trim() && percentuale() == null) nota("nota-prodotto", "Lo sconto va da 1 a 99 (es. 30 o 12,5).", "allarme");
+    else nota("nota-prodotto", "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.");
+  };
 
   var pezzi = 1;
   var kgAMano = false;      /* se Carlo scrive lui il prezzo al kg/lt, il calcolo non lo tocca più */
@@ -355,14 +373,16 @@
     if (!this.checked) $("sconto-perc").value = "";
   };
 
-  /* prezzo al kg o al litro: prezzo della confezione diviso il suo peso/volume */
+  /* prezzo al kg, al litro, a uovo o a rotolo: prezzo della confezione diviso il suo contenuto */
+  function nomePrezzoUnitario(u) {
+    return u === "ML" || u === "LT" ? "Prezzo al litro" : u === "UOVA" ? "Prezzo a uovo" : u === "ROTOLI" ? "Prezzo a rotolo" : "Prezzo al kg";
+  }
   function ricalcola() {
     var u = $("unita").value;
-    var litri = u === "ML" || u === "LT";
-    $("label-kg").textContent = litri ? "Prezzo al litro" : "Prezzo al kg";
+    $("label-kg").textContent = nomePrezzoUnitario(u);
     if (kgAMano) { $("calcolato").textContent = ""; return; }
     var q = numero($("quantita").value), p = numero($("prezzo-conf").value);
-    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : (u === "KG" || u === "LT") ? q : null;
+    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : (u === "KG" || u === "LT" || u === "UOVA" || u === "ROTOLI") ? q : null;
     if (base && p != null) {
       $("prezzo-kg").value = euro(Math.round(p / base * 100) / 100);
       $("calcolato").textContent = "calcolato";
@@ -385,14 +405,60 @@
     if (v !== this.value) this.value = v;
     if (v.length >= 8 && !codiceValido(v)) nota("nota-prodotto", "Questo codice non torna (l'ultima cifra è di controllo): ricontrolla le cifre. Se è scritto così, va bene lo stesso.", "allarme");
     else nota("nota-prodotto", "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.");
+    precompila(v);
   };
+
+  /* ---------- codice già visto: formato e prezzo pieno dell'ultima volta (dal catalogo sul telefono) ---------- */
+
+  var precompilato = "";
+  var base = null;   /* marca, alimento e formato proposti dal catalogo: se li cambi, vanno in anagrafica */
+  /* in anagrafica solo se c'è un barcode, almeno marca o alimento, e qualcosa è diverso da quanto proposto */
+  function daMettereInAnagrafica(p, prima) {
+    if (!p.barcode || (!p.marca && !p.alimento)) return false;
+    if (!prima) return true;
+    return p.marca !== (prima.marca || "") || p.alimento !== (prima.alimento || "") ||
+      (p.quantita != null && (p.quantita !== prima.quantita || p.unita !== (prima.unita || "")));
+  }
+  function precompila(cod) {
+    var c = stato.catalogo && stato.catalogo[cod];
+    if (!c || inModifica || cod === precompilato) return;
+    precompilato = cod;
+    base = { marca: c.marca || "", alimento: c.alimento || "", quantita: c.quantita, unita: c.unita || "" };
+    /* riempio solo i campi ancora vuoti: quello che hai già scritto non lo tocco */
+    if ($("marca").value === "" && c.marca) $("marca").value = c.marca;
+    if ($("alimento").value === "" && c.alimento) $("alimento").value = c.alimento;
+    if ($("quantita").value === "" && c.quantita != null && c.unita) { $("quantita").value = testoNumero(c.quantita); $("unita").value = c.unita; }
+    if ($("prezzo-conf").value === "" && c.prezzo != null) $("prezzo-conf").value = euro(c.prezzo);
+    if ($("prezzo-kg").value === "" || !kgAMano) {
+      kgAMano = false; ricalcola();
+      if ($("prezzo-kg").value === "" && c.prezzoKg != null) { $("prezzo-kg").value = euro(c.prezzoKg); kgAMano = true; }
+    }
+    var quando = dataIt(c.data), dove = c.negozio ? " a " + c.negozio : "";
+    var sconto = c.sconto ? " Allora era scontato del " + testoNumero(c.sconto) + "%: ti propongo il prezzo pieno." :
+      c.scontoIgnoto ? " Allora era scontato (senza percentuale): il prezzo è quello pagato." : "";
+    nota("nota-prodotto", "Già visto" + (quando ? " il " + quando : "") + dove + "." + sconto + " Controlla e correggi se è cambiato.", "ok");
+  }
+  /* dopo ogni aggiunta il catalogo del telefono si aggiorna: vale subito, anche senza rete */
+  function aggiornaCatalogo(p) {
+    if (!p.barcode) return;
+    var s = p.scontato && p.scontoPerc ? p.scontoPerc / 100 : 0;
+    var pieno = function (v) { return v == null ? null : s ? Math.round(v / (1 - s) * 100 + 1e-6) / 100 : v; };
+    stato.catalogo = stato.catalogo || {};
+    stato.catalogo[p.barcode] = {
+      data: (p.dataOra || adesso()).slice(0, 10), negozio: stato.negozio, quantita: p.quantita, unita: p.unita,
+      marca: p.marca || "", alimento: p.alimento || "",
+      prezzo: pieno(p.prezzoConfezione), prezzoKg: pieno(p.prezzoKgLt),
+      sconto: s ? p.scontoPerc : null, scontoIgnoto: !!p.scontato && !s
+    };
+  }
 
   function svuotaModulo() {
     $("barcode").value = ""; $("quantita").value = ""; $("unita").value = "G";
+    $("marca").value = ""; $("alimento").value = ""; base = null;
     $("prezzo-conf").value = ""; $("prezzo-kg").value = ""; $("calcolato").textContent = "";
     $("scontato").checked = false; $("sconto-perc").value = ""; $("sconto-perc").disabled = true;
     $("scadenza").value = "";
-    pezzi = 1; kgAMano = false; inModifica = "";
+    pezzi = 1; kgAMano = false; inModifica = ""; precompilato = "";
     mostraPezzi(); ricalcola();
     $("btn-aggiungi").textContent = "Aggiungi alla lista";
     $("btn-annulla").hidden = true;
@@ -404,6 +470,8 @@
     var q = numero($("quantita").value);
     return {
       barcode: $("barcode").value.replace(/\D/g, ""),
+      marca: $("marca").value.replace(/\s+/g, " ").trim().toUpperCase(),
+      alimento: $("alimento").value.replace(/\s+/g, " ").trim().toUpperCase(),
       pezzi: pezzi,
       quantita: q,
       unita: q == null ? "" : $("unita").value,
@@ -411,20 +479,21 @@
       prezzoKgLt: numero($("prezzo-kg").value),
       prezzoAMano: kgAMano,
       scontato: $("scontato").checked,
-      scontoPerc: $("scontato").checked && $("sconto-perc").value ? Number($("sconto-perc").value) : null,
+      scontoPerc: $("scontato").checked ? percentuale() : null,
       scadenza: $("scadenza").value || ""
     };
   }
 
   function riempiModulo(p) {
     $("barcode").value = p.barcode || "";
+    $("marca").value = p.marca || ""; $("alimento").value = p.alimento || "";
     pezzi = p.pezzi || 1; mostraPezzi();
     $("quantita").value = testoNumero(p.quantita);
     $("unita").value = p.unita || "G";
     $("prezzo-conf").value = euro(p.prezzoConfezione);
     $("scontato").checked = !!p.scontato;
     $("sconto-perc").disabled = !p.scontato;
-    $("sconto-perc").value = p.scontoPerc ? String(p.scontoPerc) : "";
+    $("sconto-perc").value = p.scontoPerc ? testoNumero(p.scontoPerc) : "";
     $("scadenza").value = p.scadenza || "";
     kgAMano = !!p.prezzoAMano;
     if (kgAMano) { $("prezzo-kg").value = euro(p.prezzoKgLt); $("calcolato").textContent = ""; }
@@ -433,22 +502,30 @@
 
   $("btn-aggiungi").onclick = function () {
     var p = leggiModulo();
-    var qualcosa = p.barcode || p.quantita != null || p.prezzoConfezione != null || p.prezzoKgLt != null || p.scontato || p.scadenza;
+    var qualcosa = p.barcode || p.marca || p.alimento || p.quantita != null || p.prezzoConfezione != null || p.prezzoKgLt != null || p.scontato || p.scadenza;
     if (!qualcosa) { nota("nota-prodotto", "Compila almeno un campo prima di aggiungere.", "allarme"); return; }
     spegni();
     if (inModifica) {
       stato.prodotti.forEach(function (x) {
-        if (x.id === inModifica) { for (var k in p) x[k] = p[k]; }
+        if (x.id === inModifica) {
+          /* già da mettere in anagrafica resta tale; altrimenti lo diventa se hai cambiato marca, alimento o formato */
+          var flag = x.aggiornaAnagrafica || daMettereInAnagrafica(p, x);
+          for (var k in p) x[k] = p[k];
+          x.aggiornaAnagrafica = flag;
+          aggiornaCatalogo(x);
+        }
       });
       salva();
       svuotaModulo();
       mostraVista("riepilogo");
       return;
     }
+    p.aggiornaAnagrafica = daMettereInAnagrafica(p, base);
     p.id = nuovoId("P");
     p.dataOra = adesso();
     if (!stato.idSpesa) { stato.idSpesa = nuovoId("S"); stato.oraPrimo = p.dataOra; }
     stato.prodotti.push(p);
+    aggiornaCatalogo(p);
     salva();
     svuotaModulo();
     aggiornaConteggio();
@@ -609,7 +686,24 @@
     dt.textContent = nome; dd.textContent = valore;
     dl.appendChild(dt); dl.appendChild(dd);
   }
-  var NOMI_UNITA = { G: "g", KG: "kg", ML: "ml", LT: "lt", PZ: "pezzi" };
+  var NOMI_UNITA = { G: "gr", KG: "kg", ML: "ml", LT: "lt", PZ: "pezzi", UOVA: "uova", ROTOLI: "rotoli" };
+
+  /* totale della spesa: prezzo della confezione × pezzi; chi non ha il prezzo resta fuori e lo dico */
+  function disegnaTotale() {
+    var box = $("riep-totale"), totale = 0, senza = 0;
+    box.hidden = stato.prodotti.length === 0;
+    stato.prodotti.forEach(function (p) {
+      if (p.prezzoConfezione == null) senza++;
+      else totale += p.prezzoConfezione * (p.pezzi || 1);
+    });
+    box.innerHTML = "<span>Totale spesa</span>";
+    var cifra = document.createElement("b"); cifra.style.fontSize = "22px";
+    cifra.textContent = euro(Math.round(totale * 100) / 100) + " €";
+    box.appendChild(cifra);
+    var dett = document.createElement("div"); dett.style.cssText = "color: var(--ink-2); font-size: 14px; margin-top: 4px";
+    dett.textContent = totaleArticoli() + " articoli" + (senza ? " · " + senza + (senza === 1 ? " prodotto senza prezzo, non contato" : " prodotti senza prezzo, non contati") : "");
+    box.appendChild(dett);
+  }
 
   function disegnaRiepilogo() {
     var neg = $("riep-negozio");
@@ -622,6 +716,7 @@
     }
     var lista = $("riep-lista"); lista.innerHTML = "";
     $("btn-invia").disabled = stato.prodotti.length === 0;
+    disegnaTotale();
     if (stato.prodotti.length === 0) {
       var v = document.createElement("div"); v.className = "vuoto-lista";
       v.textContent = "Nessun prodotto in lista."; lista.appendChild(v);
@@ -630,16 +725,19 @@
     stato.prodotti.forEach(function (p, i) {
       var c = document.createElement("div"); c.className = "prodotto";
       var testa = document.createElement("div"); testa.className = "testa";
-      var cod = document.createElement("div"); cod.className = "codice" + (p.barcode ? "" : " vuoto");
-      cod.textContent = (i + 1) + ". " + (p.barcode || "senza barcode");
+      var nome = [p.marca, p.alimento].filter(Boolean).join(" · ");
+      var cod = document.createElement("div"); cod.className = "codice" + (p.barcode || nome ? "" : " vuoto");
+      if (nome) cod.style.fontFamily = "inherit";
+      cod.textContent = (i + 1) + ". " + (nome || p.barcode || "senza barcode");
       var pz = document.createElement("div"); pz.className = "pezzi"; pz.textContent = "× " + (p.pezzi || 1);
       testa.appendChild(cod); testa.appendChild(pz); c.appendChild(testa);
 
       var dl = document.createElement("dl"); dl.className = "dettagli";
+      if (nome && p.barcode) voce(dl, "Barcode", p.barcode);
       voce(dl, "Quantità", p.quantita != null ? testoNumero(p.quantita) + " " + (NOMI_UNITA[p.unita] || "") : "");
       voce(dl, "Prezzo confezione", p.prezzoConfezione != null ? euro(p.prezzoConfezione) + " €" : "");
-      voce(dl, p.unita === "ML" || p.unita === "LT" ? "Prezzo al litro" : "Prezzo al kg", p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
-      voce(dl, "Scontato", p.scontato ? "Sì" + (p.scontoPerc ? ", " + p.scontoPerc + "%" : "") : "");
+      voce(dl, nomePrezzoUnitario(p.unita), p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
+      voce(dl, "Scontato", p.scontato ? "Sì" + (p.scontoPerc ? ", " + testoNumero(p.scontoPerc) + "%" : "") : "");
       voce(dl, "Scadenza", dataIt(p.scadenza));
       voce(dl, "Inserito", (p.dataOra || "").slice(11));
       c.appendChild(dl);
@@ -697,6 +795,7 @@
       if (d && d.ok) {
         stato.chiave = p.trim();
         if (Array.isArray(d.negozi)) { stato.negozi = d.negozi; mostraNegozi(); }
+        if (d.catalogo && typeof d.catalogo === "object") stato.catalogo = d.catalogo;
         salva(); mostraStato();
         if (vista === "riepilogo") nota("nota-invio", "Collegato. Ora tocca «Invia a n8n».", "ok");
       } else {
@@ -708,7 +807,11 @@
   /* a ogni apertura aggiorno l'elenco dei negozi, senza disturbare se manca la rete */
   if (stato.chiave) {
     chiama({ chiave: stato.chiave }).then(function (d) {
-      if (d && d.ok && Array.isArray(d.negozi)) { stato.negozi = d.negozi; salva(); mostraNegozi(); }
+      if (d && d.ok && Array.isArray(d.negozi)) {
+        stato.negozi = d.negozi; mostraNegozi();
+        if (d.catalogo && typeof d.catalogo === "object") stato.catalogo = d.catalogo;
+        salva();
+      }
       else if (d && d.errore === "PAROLA_ERRATA") { stato.chiave = ""; salva(); mostraStato(); }
     }).catch(function () {});
   }
@@ -733,7 +836,8 @@
         return {
           id: p.id, dataOra: p.dataOra, barcode: p.barcode, pezzi: p.pezzi, quantita: p.quantita, unita: p.unita,
           prezzoKgLt: p.prezzoKgLt, prezzoConfezione: p.prezzoConfezione, scontato: p.scontato,
-          scontoPerc: p.scontoPerc, scadenza: p.scadenza
+          scontoPerc: p.scontoPerc, scadenza: p.scadenza,
+          marca: p.marca || "", alimento: p.alimento || "", aggiornaAnagrafica: !!p.aggiornaAnagrafica
         };
       })
     };
