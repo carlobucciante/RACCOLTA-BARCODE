@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Raccolta Barcode</title>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<style>
+  :root {
+    --bg: #F2F2F7;
+    --card: #FFFFFF;
+    --fill: rgba(118, 118, 128, 0.12);
+    --ink: #000000;
+    --ink-2: #636366;
+    --sep: rgba(60, 60, 67, 0.18);
+    --blu: #007AFF;
+    --blu-velo: rgba(0, 122, 255, 0.12);
+    --rosso: #D70015;
+    --rosso-velo: rgba(255, 59, 48, 0.14);
+    --arancio: #A84A00;
+    --verde: #248A3D;
+    --verde-velo: rgba(52, 199, 89, 0.16);
+    --raggio: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1C1C1E;
+      --fill: rgba(118, 118, 128, 0.24);
+      --ink: #FFFFFF;
+      --ink-2: #A1A1A8;
+      --sep: rgba(84, 84, 88, 0.65);
+      --blu: #0A84FF;
+      --blu-velo: rgba(10, 132, 255, 0.2);
+      --rosso: #FF6961;
+      --rosso-velo: rgba(255, 69, 58, 0.22);
+      --arancio: #FFB340;
+      --verde: #30D158;
+      --verde-velo: rgba(48, 209, 88, 0.2);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px; line-height: 1.35; letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+  }
+  button, input, select { font: inherit; letter-spacing: inherit; color: inherit; }
+  button { cursor: pointer; border: none; background: none; padding: 0; }
+  button:active { opacity: 0.6; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  :focus-visible { outline: 3px solid var(--blu); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible { outline-offset: 0; }
+
+  .wrap {
+    max-width: 600px; margin: 0 auto;
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  header { padding: 8px 4px 0; }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
+  .sub { color: var(--ink-2); font-size: 15px; margin: 4px 0 0; }
+  .sub button { color: var(--blu); font-size: 15px; }
+  .label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--ink-2); margin: 0 0 7px; padding: 0 16px; }
+  .nota { font-size: 13px; color: var(--ink-2); margin: 7px 0 0; padding: 0 16px; }
+  .nota.allarme { color: var(--arancio); font-weight: 600; }
+  .nota.ok { color: var(--verde); font-weight: 600; }
+  .nota:empty { display: none; }
+
+  /* ---------- gruppi di campi in stile elenco ---------- */
+  .gruppo { background: var(--card); border-radius: var(--raggio); overflow: hidden; }
+  .riga { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 6px 16px; position: relative; }
+  .riga + .riga::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: 0.5px solid var(--sep); }
+  .riga > label, .riga > .nome { flex: none; width: 128px; font-size: 16px; }
+  .riga input, .riga select {
+    flex: 1; min-width: 0; height: 38px; border: none; background: transparent; font-size: 17px; text-align: right;
+  }
+  .riga input::placeholder { color: var(--ink-2); opacity: 0.6; }
+  .riga select { text-align: right; text-align-last: right; appearance: none; -webkit-appearance: none; color: var(--blu); padding-right: 2px; }
+  .riga .piccolo { flex: 0 0 76px; }
+  .riga .eur { color: var(--ink-2); flex: none; }
+  .riga input[type="date"] { color: var(--ink); }
+  .riga input[type="checkbox"] { flex: none; width: 24px; height: 24px; accent-color: var(--blu); }
+  .calcolato { font-size: 12px; color: var(--ink-2); flex: none; }
+
+  .stepper { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  .stepper button { width: 40px; height: 34px; border-radius: 8px; background: var(--fill); font-size: 22px; font-weight: 500; line-height: 1; }
+  .stepper output { min-width: 36px; text-align: center; font-size: 18px; font-weight: 600; }
+
+  /* ---------- fotocamera ---------- */
+  .camera {
+    position: relative; aspect-ratio: 16 / 9; background: #0B0B0C; border-radius: var(--raggio); overflow: hidden;
+    display: none; align-items: center; justify-content: center; margin-bottom: 10px;
+  }
+  .camera.on, .camera.msg { display: flex; }
+  .camera video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera:not(.on) video { display: none; }
+  .mirino { position: absolute; inset: 14% 9%; border: 2px solid rgba(255, 255, 255, 0.75); border-radius: 14px; pointer-events: none; display: none; }
+  .camera.on .mirino { display: block; }
+  .mirino::after {
+    content: ""; position: absolute; left: 10px; right: 10px; top: 50%; height: 2px; border-radius: 2px;
+    background: #FF453A; box-shadow: 0 0 10px #FF453A; animation: sweep 2.4s ease-in-out infinite;
+  }
+  @keyframes sweep { 0%, 100% { transform: translateY(-28px); } 50% { transform: translateY(28px); } }
+  @media (prefers-reduced-motion: reduce) { .mirino::after { animation: none; } }
+  .camera-msg { position: absolute; padding: 16px; text-align: center; color: #EBEBF5; font-size: 14px; max-width: 330px; }
+  .camera.on .camera-msg { display: none; }
+  .camera-msg b { display: block; font-size: 16px; color: #FFFFFF; margin-bottom: 4px; }
+  .camera-msg .tecnico { display: block; margin-top: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #AEAEB2; word-break: break-word; }
+
+  /* ---------- pulsanti ---------- */
+  .primary, .ghost, .danger {
+    height: 50px; border-radius: 14px; font-size: 17px; font-weight: 600; padding: 0 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .primary { background: var(--blu); color: #FFFFFF; }
+  .ghost { background: var(--blu-velo); color: var(--blu); }
+  .danger { background: var(--rosso-velo); color: var(--rosso); }
+  .largo { width: 100%; }
+  .fila { display: flex; gap: 10px; }
+  .fila > * { flex: 1; }
+  .btn-scan { height: 38px; padding: 0 12px; border-radius: 10px; background: var(--blu-velo); color: var(--blu); font-size: 15px; font-weight: 600; flex: none; }
+
+  /* ---------- barra in basso ---------- */
+  .barra {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border-top: 0.5px solid var(--sep);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .barra .dentro { max-width: 600px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .conteggio { flex: 1; min-width: 0; font-size: 15px; color: var(--ink-2); }
+  .conteggio b { color: var(--ink); font-size: 17px; }
+
+  /* ---------- riepilogo ---------- */
+  .prodotto { background: var(--card); border-radius: var(--raggio); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .prodotto .testa { display: flex; align-items: baseline; gap: 10px; }
+  .prodotto .codice { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 16px; font-weight: 600; flex: 1; min-width: 0; word-break: break-all; }
+  .prodotto .codice.vuoto { font-family: inherit; color: var(--ink-2); font-weight: 500; }
+  .prodotto .pezzi { font-size: 15px; color: var(--ink-2); flex: none; }
+  .dettagli { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 15px; margin: 0; }
+  .dettagli dt { color: var(--ink-2); }
+  .dettagli dd { margin: 0; text-align: right; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--verde-velo); color: var(--verde); margin-left: 6px; }
+  .prodotto .fila button { height: 38px; font-size: 15px; border-radius: 10px; }
+  .vuoto-lista { text-align: center; color: var(--ink-2); padding: 30px 16px; }
+  .negozio-riep { background: var(--card); border-radius: var(--raggio); padding: 14px 16px; font-size: 16px; }
+  .negozio-riep span { color: var(--ink-2); display: block; font-size: 13px; text-transform: uppercase; margin-bottom: 2px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 id="titolo">Raccolta Barcode</h1>
+    <p class="sub" id="stato-foglio"></p>
+  </header>
+
+  <!-- =================== INSERIMENTO =================== -->
+  <div id="vista-inserimento" style="display: contents">
+
+    <section>
+      <p class="label">Negozio</p>
+      <div class="gruppo">
+        <div class="riga">
+          <input id="negozio" list="negozi" placeholder="Es. ESSELUNGA SARONNO" autocomplete="off" style="text-align: left" aria-label="negozio">
+          <datalist id="negozi"></datalist>
+        </div>
+      </div>
+      <p class="nota">Resta lo stesso per tutta la spesa. Scegli dall'elenco i negozi già visti negli scontrini.</p>
+    </section>
+
+    <section>
+      <p class="label" id="label-prodotto">Prodotto</p>
+      <div class="camera" id="camera">
+        <video id="video" playsinline muted></video>
+        <div class="mirino"></div>
+        <div class="camera-msg" id="camera-msg"></div>
+      </div>
+      <div class="gruppo">
+        <div class="riga">
+          <label for="barcode">Barcode</label>
+          <input id="barcode" inputmode="numeric" placeholder="Scrivi o leggi" autocomplete="off">
+          <button class="btn-scan" id="btn-camera" type="button">Fotocamera</button>
+        </div>
+        <div class="riga">
+          <span class="nome">Pezzi</span>
+          <div class="stepper">
+            <button type="button" id="meno" aria-label="un pezzo in meno">−</button>
+            <output id="pezzi">1</output>
+            <button type="button" id="piu" aria-label="un pezzo in più">+</button>
+          </div>
+        </div>
+        <div class="riga">
+          <label for="quantita">Quantità</label>
+          <input id="quantita" inputmode="decimal" placeholder="Es. 500" autocomplete="off">
+          <select id="unita" class="piccolo" aria-label="unità">
+            <option value="G">g</option>
+            <option value="KG">kg</option>
+            <option value="ML">ml</option>
+            <option value="LT">lt</option>
+            <option value="PZ">pezzi</option>
+          </select>
+        </div>
+        <div class="riga">
+          <label for="prezzo-conf">Prezzo confezione</label>
+          <input id="prezzo-conf" inputmode="decimal" placeholder="0,00" autocomplete="off">
+          <span class="eur">€</span>
+        </div>
+        <div class="riga">
+          <label for="scontato">Scontato</label>
+          <input type="checkbox" id="scontato">
+          <select id="sconto-perc" disabled aria-label="percentuale di sconto">
+            <option value="">% sconto</option>
+          </select>
+        </div>
+        <div class="riga">
+          <label for="prezzo-kg" id="label-kg">Prezzo al kg</label>
+          <span class="calcolato" id="calcolato"></span>
+          <input id="prezzo-kg" inputmode="decimal" placeholder="0,00" autocomplete="off">
+          <span class="eur">€</span>
+        </div>
+        <div class="riga">
+          <label for="scadenza">Scadenza</label>
+          <input type="date" id="scadenza">
+        </div>
+      </div>
+      <p class="nota" id="nota-prodotto">Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.</p>
+    </section>
+
+    <div class="fila">
+      <button class="ghost" id="btn-annulla" type="button" hidden>Annulla</button>
+      <button class="primary largo" id="btn-aggiungi" type="button">Aggiungi alla lista</button>
+    </div>
+  </div>
+
+  <!-- =================== RIEPILOGO =================== -->
+  <div id="vista-riepilogo" style="display: contents" hidden>
+    <div class="negozio-riep" id="riep-negozio"></div>
+    <div id="riep-lista" style="display: flex; flex-direction: column; gap: 12px"></div>
+    <section>
+      <button class="primary largo" id="btn-invia" type="button">Invia a n8n</button>
+      <p class="nota" id="nota-invio"></p>
+    </section>
+  </div>
+
+</div>
+
+<div class="barra">
+  <div class="dentro">
+    <div class="conteggio" id="conteggio"></div>
+    <button class="ghost" id="btn-vista" type="button">Riepilogo</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var API = "https://carlo-bucciante.app.n8n.cloud/webhook/raccolta-barcode-5m8x3";
+  var MEMORIA = "raccolta-barcode-v1";
+  var PERCENTUALI = [5, 10, 15, 20, 25, 30, 33, 35, 40, 50, 60, 70];
+  var FORMATI = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"];
+
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- memoria sul telefono (può mancare: la pagina funziona lo stesso) ---------- */
+
+  var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "" };
+  try {
+    var salvato = JSON.parse(localStorage.getItem(MEMORIA) || "null");
+    if (salvato && typeof salvato === "object") { for (var k in stato) if (salvato[k] !== undefined) stato[k] = salvato[k]; }
+  } catch (e) {}
+  function salva() { try { localStorage.setItem(MEMORIA, JSON.stringify(stato)); } catch (e) {} }
+
+  /* ---------- utilità ---------- */
+
+  function due(n) { return (n < 10 ? "0" : "") + n; }
+  function adesso() {
+    var d = new Date();
+    return d.getFullYear() + "-" + due(d.getMonth() + 1) + "-" + due(d.getDate()) + " " + due(d.getHours()) + ":" + due(d.getMinutes());
+  }
+  function nuovoId(prefisso) {
+    return prefisso + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+  /* "1,29" → 1.29 ; vuoto o storto → null */
+  function numero(s) {
+    s = String(s == null ? "" : s).trim().replace(/\s/g, "").replace(",", ".");
+    if (s === "") return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? n : null;
+  }
+  function euro(n) { return n == null ? "" : n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }); }
+  function testoNumero(n) { return n == null ? "" : n.toLocaleString("it-IT", { maximumFractionDigits: 3, useGrouping: false }); }
+  function dataIt(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? m[3] + "/" + m[2] + "/" + m[1] : ""; }
+  function codiceValido(c) {
+    if ([8, 12, 13, 14].indexOf(c.length) < 0) return false;
+    var s = 0;
+    for (var i = 0; i < c.length - 1; i++) s += (+c.charAt(c.length - 2 - i)) * (i % 2 === 0 ? 3 : 1);
+    return (10 - (s % 10)) % 10 === +c.charAt(c.length - 1);
+  }
+  function nota(id, testo, tipo) { var el = $(id); el.textContent = testo || ""; el.className = "nota" + (tipo ? " " + tipo : ""); }
+  function beep() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx(), o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "square"; o.frequency.value = 1180;
+      g.gain.setValueAtTime(0.09, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.13);
+      setTimeout(function () { ctx.close(); }, 500);
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+  }
+
+  /* ---------- modulo del prodotto ---------- */
+
+  PERCENTUALI.forEach(function (p) {
+    var o = document.createElement("option"); o.value = String(p); o.textContent = p + "%"; $("sconto-perc").appendChild(o);
+  });
+
+  var pezzi = 1;
+  var kgAMano = false;      /* se Carlo scrive lui il prezzo al kg/lt, il calcolo non lo tocca più */
+  var inModifica = "";      /* id del prodotto che si sta modificando */
+
+  function mostraPezzi() { $("pezzi").textContent = String(pezzi); $("meno").disabled = pezzi <= 1; }
+  $("meno").onclick = function () { if (pezzi > 1) { pezzi--; mostraPezzi(); } };
+  $("piu").onclick = function () { if (pezzi < 99) { pezzi++; mostraPezzi(); } };
+
+  $("scontato").onchange = function () {
+    $("sconto-perc").disabled = !this.checked;
+    if (!this.checked) $("sconto-perc").value = "";
+  };
+
+  /* prezzo al kg o al litro: prezzo della confezione diviso il suo peso/volume */
+  function ricalcola() {
+    var u = $("unita").value;
+    var litri = u === "ML" || u === "LT";
+    $("label-kg").textContent = litri ? "Prezzo al litro" : "Prezzo al kg";
+    if (kgAMano) { $("calcolato").textContent = ""; return; }
+    var q = numero($("quantita").value), p = numero($("prezzo-conf").value);
+    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : (u === "KG" || u === "LT") ? q : null;
+    if (base && p != null) {
+      $("prezzo-kg").value = euro(Math.round(p / base * 100) / 100);
+      $("calcolato").textContent = "calcolato";
+    } else {
+      $("prezzo-kg").value = "";
+      $("calcolato").textContent = "";
+    }
+  }
+  $("quantita").oninput = ricalcola;
+  $("prezzo-conf").oninput = ricalcola;
+  $("unita").onchange = ricalcola;
+  $("prezzo-kg").oninput = function () {
+    kgAMano = this.value.trim() !== "";
+    $("calcolato").textContent = "";
+    if (!kgAMano) ricalcola();
+  };
+
+  $("barcode").oninput = function () {
+    var v = this.value.replace(/\D/g, "");
+    if (v !== this.value) this.value = v;
+    if (v.length >= 8 && !codiceValido(v)) nota("nota-prodotto", "Questo codice non torna (l'ultima cifra è di controllo): ricontrolla le cifre. Se è scritto così, va bene lo stesso.", "allarme");
+    else nota("nota-prodotto", "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.");
+  };
+
+  function svuotaModulo() {
+    $("barcode").value = ""; $("quantita").value = ""; $("unita").value = "G";
+    $("prezzo-conf").value = ""; $("prezzo-kg").value = ""; $("calcolato").textContent = "";
+    $("scontato").checked = false; $("sconto-perc").value = ""; $("sconto-perc").disabled = true;
+    $("scadenza").value = "";
+    pezzi = 1; kgAMano = false; inModifica = "";
+    mostraPezzi(); ricalcola();
+    $("btn-aggiungi").textContent = "Aggiungi alla lista";
+    $("btn-annulla").hidden = true;
+    $("label-prodotto").textContent = "Prodotto";
+    nota("nota-prodotto", "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.");
+  }
+
+  function leggiModulo() {
+    var q = numero($("quantita").value);
+    return {
+      barcode: $("barcode").value.replace(/\D/g, ""),
+      pezzi: pezzi,
+      quantita: q,
+      unita: q == null ? "" : $("unita").value,
+      prezzoConfezione: numero($("prezzo-conf").value),
+      prezzoKgLt: numero($("prezzo-kg").value),
+      prezzoAMano: kgAMano,
+      scontato: $("scontato").checked,
+      scontoPerc: $("scontato").checked && $("sconto-perc").value ? Number($("sconto-perc").value) : null,
+      scadenza: $("scadenza").value || ""
+    };
+  }
+
+  function riempiModulo(p) {
+    $("barcode").value = p.barcode || "";
+    pezzi = p.pezzi || 1; mostraPezzi();
+    $("quantita").value = testoNumero(p.quantita);
+    $("unita").value = p.unita || "G";
+    $("prezzo-conf").value = euro(p.prezzoConfezione);
+    $("scontato").checked = !!p.scontato;
+    $("sconto-perc").disabled = !p.scontato;
+    $("sconto-perc").value = p.scontoPerc ? String(p.scontoPerc) : "";
+    $("scadenza").value = p.scadenza || "";
+    kgAMano = !!p.prezzoAMano;
+    if (kgAMano) { $("prezzo-kg").value = euro(p.prezzoKgLt); $("calcolato").textContent = ""; }
+    ricalcola();
+  }
+
+  $("btn-aggiungi").onclick = function () {
+    var p = leggiModulo();
+    var qualcosa = p.barcode || p.quantita != null || p.prezzoConfezione != null || p.prezzoKgLt != null || p.scontato || p.scadenza;
+    if (!qualcosa) { nota("nota-prodotto", "Compila almeno un campo prima di aggiungere.", "allarme"); return; }
+    spegni();
+    if (inModifica) {
+      stato.prodotti.forEach(function (x) {
+        if (x.id === inModifica) { for (var k in p) x[k] = p[k]; }
+      });
+      salva();
+      svuotaModulo();
+      mostraVista("riepilogo");
+      return;
+    }
+    p.id = nuovoId("P");
+    p.dataOra = adesso();
+    if (!stato.idSpesa) { stato.idSpesa = nuovoId("S"); stato.oraPrimo = p.dataOra; }
+    stato.prodotti.push(p);
+    salva();
+    svuotaModulo();
+    aggiornaConteggio();
+    nota("nota-prodotto", "Aggiunto. Passa al prodotto successivo.", "ok");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  $("btn-annulla").onclick = function () { svuotaModulo(); mostraVista("riepilogo"); };
+
+  /* ---------- negozio ---------- */
+
+  $("negozio").value = stato.negozio || "";
+  $("negozio").oninput = function () { stato.negozio = this.value.toUpperCase(); salva(); };
+  $("negozio").onchange = function () { this.value = this.value.toUpperCase().replace(/\s+/g, " ").trim(); stato.negozio = this.value; salva(); };
+  function mostraNegozi() {
+    var dl = $("negozi"); dl.innerHTML = "";
+    stato.negozi.forEach(function (n) { var o = document.createElement("option"); o.value = n; dl.appendChild(o); });
+  }
+  mostraNegozi();
+
+  /* ---------- fotocamera (stesso motore dello Scanner Dispensa) ---------- */
+
+  var camera = $("camera"), msg = $("camera-msg");
+  var stream = null, reader = null, acceso = false, avvio = false;
+
+  function lettoreDelBrowser() {
+    if (!("BarcodeDetector" in window)) return null;
+    try { return new window.BarcodeDetector({ formats: FORMATI }); } catch (e) { return null; }
+  }
+  function fermaFlusso() {
+    if (reader) { try { reader.reset(); } catch (e) {} reader = null; }
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+  }
+  function spegni() {
+    acceso = false; avvio = false; fermaFlusso();
+    camera.className = "camera";
+    $("btn-camera").textContent = "Fotocamera";
+  }
+  function errore(e) {
+    spegni();
+    var nome = (e && e.name) ? e.name : "nessun errore";
+    var causa = nome === "NotAllowedError"
+      ? "Il permesso della fotocamera è stato negato: tocca di nuovo il pulsante, oppure riattivalo dalle impostazioni del sito."
+      : "Questo dispositivo non mi lascia usare la fotocamera: scrivi il codice a mano.";
+    msg.innerHTML = "<b>Fotocamera non disponibile</b>" + causa + '<span class="tecnico"></span>';
+    msg.querySelector(".tecnico").textContent = nome + ": " + ((e && e.message) || "getUserMedia non esiste su questo browser");
+    camera.className = "camera msg";
+  }
+  /* un codice letto: va nel campo, la fotocamera si spegne (un prodotto alla volta) */
+  function letto(cod) {
+    cod = String(cod || "").replace(/\D/g, "");
+    if (cod.length < 8) return;
+    if ((cod.length === 12 || cod.length === 13) && !codiceValido(cod)) return;   /* lettura storta */
+    $("barcode").value = cod;
+    $("barcode").oninput.call($("barcode"));
+    beep();
+    spegni();
+    $("quantita").focus();
+  }
+  function accendi() {
+    var video = $("video");
+    if (avvio) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { errore(null); return; }
+    avvio = true;
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    }).then(function (s) {
+      stream = s; video.srcObject = s; return video.play();
+    }).then(function () {
+      avvio = false; acceso = true;
+      camera.className = "camera on";
+      $("btn-camera").textContent = "Spegni";
+      var traccia = stream.getVideoTracks()[0];
+      try {
+        var cap = traccia.getCapabilities ? traccia.getCapabilities() : {};
+        if (cap.focusMode && cap.focusMode.indexOf("continuous") >= 0) traccia.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      } catch (e) {}
+      var det = lettoreDelBrowser();
+      if (det) {
+        var giro = function () {
+          if (!acceso) return;
+          det.detect(video).then(function (out) { if (out && out.length) letto(out[0].rawValue); })
+            .catch(function () {}).then(function () { if (acceso) setTimeout(giro, 250); });
+        };
+        giro();
+      } else if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
+        var hints = new Map();
+        try {
+          var F = window.ZXing.BarcodeFormat, H = window.ZXing.DecodeHintType;
+          hints.set(H.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128]);
+          hints.set(H.TRY_HARDER, true);
+        } catch (e) {}
+        reader = new window.ZXing.BrowserMultiFormatReader(hints, 200);
+        var risposta = function (res) { if (res) letto(res.getText()); };
+        try { reader.decodeFromStream(stream, video, risposta); } catch (e) { reader.decodeFromVideoElement(video, risposta); }
+      } else {
+        errore({ name: "Libreria", message: "la libreria che legge i codici non si è caricata: controlla la connessione" });
+      }
+    }).catch(errore);
+  }
+  $("btn-camera").onclick = function () { if (acceso || avvio) spegni(); else accendi(); };
+  document.addEventListener("visibilitychange", function () { if (document.hidden && acceso) spegni(); });
+
+  /* ---------- conteggio e viste ---------- */
+
+  function totaleArticoli() { return stato.prodotti.reduce(function (t, p) { return t + (p.pezzi || 1); }, 0); }
+  var vista = "inserimento";
+
+  function aggiornaConteggio() {
+    var n = stato.prodotti.length, a = totaleArticoli();
+    $("conteggio").innerHTML = n === 0 ? "Lista vuota"
+      : "<b>" + n + "</b> " + (n === 1 ? "prodotto" : "prodotti") + " · " + a + " " + (a === 1 ? "articolo" : "articoli");
+  }
+
+  function mostraVista(v) {
+    vista = v;
+    spegni();
+    $("vista-inserimento").hidden = v !== "inserimento";
+    $("vista-riepilogo").hidden = v !== "riepilogo";
+    $("btn-vista").textContent = v === "inserimento" ? "Riepilogo" : (inModifica ? "Riepilogo" : "Aggiungi altri");
+    $("titolo").textContent = v === "inserimento" ? (inModifica ? "Modifica prodotto" : "Raccolta Barcode") : "Riepilogo";
+    if (v === "riepilogo") disegnaRiepilogo();
+    aggiornaConteggio();
+    window.scrollTo(0, 0);
+  }
+  $("btn-vista").onclick = function () {
+    if (vista === "inserimento") { if (inModifica) svuotaModulo(); mostraVista("riepilogo"); }
+    else mostraVista("inserimento");
+  };
+
+  function voce(dl, nome, valore) {
+    if (valore === "" || valore == null) return;
+    var dt = document.createElement("dt"), dd = document.createElement("dd");
+    dt.textContent = nome; dd.textContent = valore;
+    dl.appendChild(dt); dl.appendChild(dd);
+  }
+  var NOMI_UNITA = { G: "g", KG: "kg", ML: "ml", LT: "lt", PZ: "pezzi" };
+
+  function disegnaRiepilogo() {
+    var neg = $("riep-negozio");
+    neg.innerHTML = "<span>Negozio</span>";
+    neg.appendChild(document.createTextNode(stato.negozio || "Non indicato"));
+    var lista = $("riep-lista"); lista.innerHTML = "";
+    $("btn-invia").disabled = stato.prodotti.length === 0;
+    if (stato.prodotti.length === 0) {
+      var v = document.createElement("div"); v.className = "vuoto-lista";
+      v.textContent = "Nessun prodotto in lista."; lista.appendChild(v);
+      return;
+    }
+    stato.prodotti.forEach(function (p, i) {
+      var c = document.createElement("div"); c.className = "prodotto";
+      var testa = document.createElement("div"); testa.className = "testa";
+      var cod = document.createElement("div"); cod.className = "codice" + (p.barcode ? "" : " vuoto");
+      cod.textContent = (i + 1) + ". " + (p.barcode || "senza barcode");
+      var pz = document.createElement("div"); pz.className = "pezzi"; pz.textContent = "× " + (p.pezzi || 1);
+      testa.appendChild(cod); testa.appendChild(pz); c.appendChild(testa);
+
+      var dl = document.createElement("dl"); dl.className = "dettagli";
+      voce(dl, "Quantità", p.quantita != null ? testoNumero(p.quantita) + " " + (NOMI_UNITA[p.unita] || "") : "");
+      voce(dl, "Prezzo confezione", p.prezzoConfezione != null ? euro(p.prezzoConfezione) + " €" : "");
+      voce(dl, p.unita === "ML" || p.unita === "LT" ? "Prezzo al litro" : "Prezzo al kg", p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
+      voce(dl, "Scontato", p.scontato ? "Sì" + (p.scontoPerc ? ", " + p.scontoPerc + "%" : "") : "");
+      voce(dl, "Scadenza", dataIt(p.scadenza));
+      voce(dl, "Inserito", (p.dataOra || "").slice(11));
+      c.appendChild(dl);
+
+      var fila = document.createElement("div"); fila.className = "fila";
+      var mod = document.createElement("button"); mod.className = "ghost"; mod.textContent = "Modifica";
+      mod.onclick = function () {
+        svuotaModulo();
+        inModifica = p.id;
+        riempiModulo(p);
+        $("btn-aggiungi").textContent = "Salva le modifiche";
+        $("btn-annulla").hidden = false;
+        $("label-prodotto").textContent = "Prodotto " + (i + 1);
+        mostraVista("inserimento");
+      };
+      var del = document.createElement("button"); del.className = "danger"; del.textContent = "Elimina";
+      del.onclick = function () {
+        if (!confirm("Elimino il prodotto " + (i + 1) + (p.barcode ? " (" + p.barcode + ")" : "") + "?")) return;
+        stato.prodotti = stato.prodotti.filter(function (x) { return x.id !== p.id; });
+        if (stato.prodotti.length === 0) { stato.idSpesa = ""; stato.oraPrimo = ""; }
+        salva(); disegnaRiepilogo(); aggiornaConteggio();
+      };
+      fila.appendChild(mod); fila.appendChild(del); c.appendChild(fila);
+      lista.appendChild(c);
+    });
+  }
+
+  /* ---------- collegamento al foglio ---------- */
+
+  function chiama(corpo) {
+    /* testo semplice: il browser non fa la domanda preliminare (CORS) che n8n non gestisce */
+    return fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(corpo) })
+      .then(function (r) { if (!r.ok) throw new Error("risposta " + r.status); return r.json(); });
+  }
+
+  function mostraStato() {
+    var s = $("stato-foglio"); s.innerHTML = "";
+    if (stato.chiave) {
+      s.appendChild(document.createTextNode("Collegato al foglio RACCOLTA_BARCODE · "));
+      var b = document.createElement("button"); b.textContent = "Scollega";
+      b.onclick = function () { if (confirm("Scollego il telefono dal foglio? La lista resta qui.")) { stato.chiave = ""; salva(); mostraStato(); } };
+      s.appendChild(b);
+    } else {
+      s.appendChild(document.createTextNode("Non collegato · "));
+      var c = document.createElement("button"); c.textContent = "Collega al foglio";
+      c.onclick = collega;
+      s.appendChild(c);
+    }
+  }
+
+  function collega() {
+    var p = prompt("Scrivi la parola d'ordine del foglio (la stessa dello Scanner Dispensa):", "");
+    if (!p) return;
+    chiama({ chiave: p.trim() }).then(function (d) {
+      if (d && d.ok) {
+        stato.chiave = p.trim();
+        if (Array.isArray(d.negozi)) { stato.negozi = d.negozi; mostraNegozi(); }
+        salva(); mostraStato();
+        if (vista === "riepilogo") nota("nota-invio", "Collegato. Ora tocca «Invia a n8n».", "ok");
+      } else {
+        alert("La parola d'ordine non è giusta.");
+      }
+    }).catch(function () { alert("Non riesco a raggiungere n8n: controlla la connessione e riprova."); });
+  }
+
+  /* a ogni apertura aggiorno l'elenco dei negozi, senza disturbare se manca la rete */
+  if (stato.chiave) {
+    chiama({ chiave: stato.chiave }).then(function (d) {
+      if (d && d.ok && Array.isArray(d.negozi)) { stato.negozi = d.negozi; salva(); mostraNegozi(); }
+      else if (d && d.errore === "PAROLA_ERRATA") { stato.chiave = ""; salva(); mostraStato(); }
+    }).catch(function () {});
+  }
+
+  /* ---------- invio ---------- */
+
+  var inviando = false;
+  $("btn-invia").onclick = function () {
+    if (inviando || stato.prodotti.length === 0) return;
+    if (!stato.chiave) { collega(); return; }
+    if (!stato.negozio && !confirm("Non hai indicato il negozio: senza, sarà difficile abbinare la spesa allo scontrino. Invio lo stesso?")) return;
+    inviando = true;
+    $("btn-invia").disabled = true;
+    nota("nota-invio", "Invio in corso…");
+    var n = stato.prodotti.length;
+    var corpo = {
+      chiave: stato.chiave,
+      spesa: { idSpesa: stato.idSpesa, negozio: stato.negozio, oraPrimoProdotto: stato.oraPrimo, oraInvio: adesso() },
+      prodotti: stato.prodotti.map(function (p) {
+        return {
+          id: p.id, dataOra: p.dataOra, barcode: p.barcode, pezzi: p.pezzi, quantita: p.quantita, unita: p.unita,
+          prezzoKgLt: p.prezzoKgLt, prezzoConfezione: p.prezzoConfezione, scontato: p.scontato,
+          scontoPerc: p.scontoPerc, scadenza: p.scadenza
+        };
+      })
+    };
+    chiama(corpo).then(function (d) {
+      if (d && d.ok) {
+        stato.prodotti = []; stato.idSpesa = ""; stato.oraPrimo = "";
+        salva();
+        disegnaRiepilogo(); aggiornaConteggio();
+        nota("nota-invio", "Inviati " + (d.ricevuti || n) + " prodotti: sono sul foglio. La lista è di nuovo vuota.", "ok");
+      } else if (d && d.errore === "PAROLA_ERRATA") {
+        stato.chiave = ""; salva(); mostraStato();
+        nota("nota-invio", "La parola d'ordine non è più giusta: tocca «Collega al foglio» in alto e riscrivila. La lista è ancora qui.", "allarme");
+      } else {
+        nota("nota-invio", "n8n non ha confermato l'invio. La lista è ancora qui: riprova tra poco.", "allarme");
+      }
+    }).catch(function () {
+      nota("nota-invio", "Non riesco a raggiungere n8n (manca la rete?). La lista è al sicuro sul telefono: riprova quando c'è connessione.", "allarme");
+    }).then(function () {
+      inviando = false;
+      $("btn-invia").disabled = stato.prodotti.length === 0;
+    });
+  };
+
+  /* ---------- partenza ---------- */
+
+  mostraPezzi();
+  ricalcola();
+  mostraStato();
+  aggiornaConteggio();
+})();
+</script>
+</body>
+</html>
