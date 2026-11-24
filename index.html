@@ -223,12 +223,18 @@
           </div>
         </div>
         <div class="riga">
-          <label for="quantita">Quantità</label>
+          <label for="per-conf">Confezione da</label>
+          <input id="per-conf" inputmode="numeric" placeholder="1" autocomplete="off">
+          <span class="eur">pz</span>
+        </div>
+        <div class="riga">
+          <label for="quantita" id="label-quantita">Quantità</label>
           <input id="quantita" inputmode="decimal" placeholder="Es. 500" autocomplete="off">
           <select id="unita" class="piccolo" aria-label="unità">
             <option value="G">gr</option>
             <option value="KG">kg</option>
             <option value="ML">ml</option>
+            <option value="CL">cl</option>
             <option value="LT">lt</option>
             <option value="PZ">pezzi</option>
             <option value="UOVA">uova</option>
@@ -251,6 +257,18 @@
           <label for="prezzo-kg" id="label-kg">Prezzo al kg</label>
           <span class="calcolato" id="calcolato"></span>
           <input id="prezzo-kg" inputmode="decimal" placeholder="0,00" autocomplete="off">
+          <span class="eur">€</span>
+        </div>
+        <div class="riga" id="riga-pieno" hidden>
+          <label for="prezzo-kg-pieno" id="label-pieno">Prezzo al kg pieno</label>
+          <span class="calcolato">senza sconto</span>
+          <input id="prezzo-kg-pieno" readonly tabindex="-1">
+          <span class="eur">€</span>
+        </div>
+        <div class="riga" id="riga-pezzo" hidden>
+          <label for="prezzo-pezzo">Prezzo a pezzo</label>
+          <span class="calcolato">calcolato</span>
+          <input id="prezzo-pezzo" readonly tabindex="-1">
           <span class="eur">€</span>
         </div>
         <div class="riga">
@@ -358,7 +376,9 @@
   $("sconto-perc").oninput = function () {
     if (this.value.trim() && percentuale() == null) nota("nota-prodotto", "Lo sconto va da 1 a 99 (es. 30 o 12,5).", "allarme");
     else nota("nota-prodotto", "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.");
+    aggiornaPieno();
   };
+  $("sconto-perc").onchange = function () { aggiornaPieno(); };
 
   var pezzi = 1;
   var kgAMano = false;      /* se Carlo scrive lui il prezzo al kg/lt, il calcolo non lo tocca più */
@@ -371,18 +391,57 @@
   $("scontato").onchange = function () {
     $("sconto-perc").disabled = !this.checked;
     if (!this.checked) $("sconto-perc").value = "";
+    aggiornaPieno();
   };
 
   /* prezzo al kg, al litro, a uovo o a rotolo: prezzo della confezione diviso il suo contenuto */
   function nomePrezzoUnitario(u) {
-    return u === "ML" || u === "LT" ? "Prezzo al litro" : u === "UOVA" ? "Prezzo a uovo" : u === "ROTOLI" ? "Prezzo a rotolo" : "Prezzo al kg";
+    return u === "ML" || u === "CL" || u === "LT" ? "Prezzo al litro" : u === "UOVA" ? "Prezzo a uovo" : u === "ROTOLI" ? "Prezzo a rotolo" : "Prezzo al kg";
+  }
+  /* prezzo al kg pieno (chiesto da Carlo il 24/11/2026): quello del campo è già scontato,
+     il pieno = scontato / (1 − sconto). Stesso calcolo del workflow, che lo scrive in PREZZO_KG_LT_PIENO */
+  function kgPieno(kg, scontato, perc) {
+    if (kg == null) return null;
+    if (!scontato) return kg;
+    return perc ? Math.round(kg / (1 - perc / 100) * 100 + 1e-6) / 100 : null;
+  }
+  function aggiornaPieno() {
+    var u = $("unita").value, scontato = $("scontato").checked, perc = percentuale();
+    var v = scontato && perc ? kgPieno(numero($("prezzo-kg").value), true, perc) : null;
+    $("label-kg").textContent = nomePrezzoUnitario(u) + (scontato ? " scontato" : "");
+    $("label-pieno").textContent = nomePrezzoUnitario(u) + " pieno";
+    $("prezzo-kg-pieno").value = euro(v);
+    $("riga-pieno").hidden = v == null;
+  }
+  /* confezione multipla (chiesto da Carlo il 24/11/2026): 6 bottiglie da 1,5 lt, 4 lattine da 33 cl.
+     "Confezione da" = quanti pezzi ha la confezione, "Quantità" = contenuto di UN pezzo. Sul telefono e sul
+     foglio la quantità resta il contenuto totale (6 × 1,5 = 9 lt), come prima, più PEZZI_PER_CONFEZIONE */
+  function perConf() {
+    var n = parseInt($("per-conf").value, 10);
+    return n >= 1 && n <= 99 ? n : 1;
+  }
+  $("per-conf").oninput = function () {
+    var v = this.value.replace(/\D/g, "").slice(0, 2);
+    if (v !== this.value) this.value = v;
+    ricalcola();
+  };
+  function aggiornaPezzo() {
+    var n = perConf(), p = numero($("prezzo-conf").value);
+    $("label-quantita").textContent = n > 1 ? "Quantità a pezzo" : "Quantità";
+    $("prezzo-pezzo").value = n > 1 && p != null ? euro(Math.round(p / n * 100 + 1e-6) / 100) : "";
+    $("riga-pezzo").hidden = !(n > 1 && p != null);
   }
   function ricalcola() {
+    ricalcolaKg();
+    aggiornaPieno();
+    aggiornaPezzo();
+  }
+  function ricalcolaKg() {
     var u = $("unita").value;
-    $("label-kg").textContent = nomePrezzoUnitario(u);
     if (kgAMano) { $("calcolato").textContent = ""; return; }
     var q = numero($("quantita").value), p = numero($("prezzo-conf").value);
-    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : (u === "KG" || u === "LT" || u === "UOVA" || u === "ROTOLI") ? q : null;
+    if (q != null) q = q * perConf();
+    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : u === "CL" ? q / 100 : (u === "KG" || u === "LT" || u === "UOVA" || u === "ROTOLI") ? q : null;
     if (base && p != null) {
       $("prezzo-kg").value = euro(Math.round(p / base * 100) / 100);
       $("calcolato").textContent = "calcolato";
@@ -397,7 +456,7 @@
   $("prezzo-kg").oninput = function () {
     kgAMano = this.value.trim() !== "";
     $("calcolato").textContent = "";
-    if (!kgAMano) ricalcola();
+    if (!kgAMano) ricalcola(); else aggiornaPieno();
   };
 
   $("barcode").oninput = function () {
@@ -427,12 +486,19 @@
     /* riempio solo i campi ancora vuoti: quello che hai già scritto non lo tocco */
     if ($("marca").value === "" && c.marca) $("marca").value = c.marca;
     if ($("alimento").value === "" && c.alimento) $("alimento").value = c.alimento;
-    if ($("quantita").value === "" && c.quantita != null && c.unita) { $("quantita").value = testoNumero(c.quantita); $("unita").value = c.unita; }
+    if ($("quantita").value === "" && c.quantita != null && c.unita) {
+      /* confezione multipla: il catalogo ha il totale (9 lt) e i pezzi (6) → 6 × 1,5 lt */
+      var n = c.perConfezione > 1 ? c.perConfezione : 1;
+      if ($("per-conf").value === "" && n > 1) $("per-conf").value = String(n); else n = perConf();
+      $("quantita").value = testoNumero(Math.round(c.quantita / n * 1000) / 1000); $("unita").value = c.unita;
+    }
     if ($("prezzo-conf").value === "" && c.prezzo != null) $("prezzo-conf").value = euro(c.prezzo);
     if ($("prezzo-kg").value === "" || !kgAMano) {
       kgAMano = false; ricalcola();
       if ($("prezzo-kg").value === "" && c.prezzoKg != null) { $("prezzo-kg").value = euro(c.prezzoKg); kgAMano = true; }
+      aggiornaPieno();
     }
+    aggiornaPezzo();
     var quando = dataIt(c.data), dove = c.negozio ? " a " + c.negozio : "";
     var sconto = c.sconto ? " Allora era scontato del " + testoNumero(c.sconto) + "%: ti propongo il prezzo pieno." :
       c.scontoIgnoto ? " Allora era scontato (senza percentuale): il prezzo è quello pagato." : "";
@@ -446,6 +512,7 @@
     stato.catalogo = stato.catalogo || {};
     stato.catalogo[p.barcode] = {
       data: (p.dataOra || adesso()).slice(0, 10), negozio: stato.negozio, quantita: p.quantita, unita: p.unita,
+      perConfezione: p.perConfezione || 1,
       marca: p.marca || "", alimento: p.alimento || "",
       prezzo: pieno(p.prezzoConfezione), prezzoKg: pieno(p.prezzoKgLt),
       sconto: s ? p.scontoPerc : null, scontoIgnoto: !!p.scontato && !s
@@ -453,7 +520,7 @@
   }
 
   function svuotaModulo() {
-    $("barcode").value = ""; $("quantita").value = ""; $("unita").value = "G";
+    $("barcode").value = ""; $("quantita").value = ""; $("unita").value = "G"; $("per-conf").value = "";
     $("marca").value = ""; $("alimento").value = ""; base = null;
     $("prezzo-conf").value = ""; $("prezzo-kg").value = ""; $("calcolato").textContent = "";
     $("scontato").checked = false; $("sconto-perc").value = ""; $("sconto-perc").disabled = true;
@@ -467,8 +534,10 @@
   }
 
   function leggiModulo() {
-    var q = numero($("quantita").value);
+    var n = perConf(), q = numero($("quantita").value);
+    if (q != null) q = Math.round(q * n * 1000) / 1000;   /* contenuto totale della confezione */
     return {
+      perConfezione: n,
       barcode: $("barcode").value.replace(/\D/g, ""),
       marca: $("marca").value.replace(/\s+/g, " ").trim().toUpperCase(),
       alimento: $("alimento").value.replace(/\s+/g, " ").trim().toUpperCase(),
@@ -488,7 +557,9 @@
     $("barcode").value = p.barcode || "";
     $("marca").value = p.marca || ""; $("alimento").value = p.alimento || "";
     pezzi = p.pezzi || 1; mostraPezzi();
-    $("quantita").value = testoNumero(p.quantita);
+    var n = p.perConfezione > 1 ? p.perConfezione : 1;
+    $("per-conf").value = n > 1 ? String(n) : "";
+    $("quantita").value = p.quantita == null ? "" : testoNumero(Math.round(p.quantita / n * 1000) / 1000);
     $("unita").value = p.unita || "G";
     $("prezzo-conf").value = euro(p.prezzoConfezione);
     $("scontato").checked = !!p.scontato;
@@ -530,6 +601,7 @@
     svuotaModulo();
     aggiornaConteggio();
     nota("nota-prodotto", "Aggiunto. Passa al prodotto successivo.", "ok");
+    proponiFotocamera();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -588,7 +660,15 @@
     camera.className = "camera";
     $("btn-camera").textContent = "Fotocamera";
   }
+  /* fotocamera accesa di default (chiesto da Carlo il 24/11/2026): si accende da sola all'apertura e a ogni
+     nuovo prodotto; la spegne Carlo col pulsante solo se vuole scrivere il codice a mano. Non si riaccende
+     da sola dopo un errore (permesso negato, niente fotocamera): lì serve il pulsante */
+  var bloccata = false;
+  function proponiFotocamera() {
+    if (vista === "inserimento" && !inModifica && !bloccata && !document.hidden && !$("barcode").value) accendi();
+  }
   function errore(e) {
+    bloccata = true;
     spegni();
     var nome = (e && e.name) ? e.name : "nessun errore";
     var causa = nome === "NotAllowedError"
@@ -650,8 +730,13 @@
       }
     }).catch(errore);
   }
-  $("btn-camera").onclick = function () { if (acceso || avvio) spegni(); else accendi(); };
-  document.addEventListener("visibilitychange", function () { if (document.hidden && acceso) spegni(); });
+  $("btn-camera").onclick = function () { if (acceso || avvio) spegni(); else { bloccata = false; accendi(); } };
+  /* app in secondo piano: si spegne; al ritorno si riaccende se il prodotto non ha ancora il codice */
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (acceso || avvio) { spegni(); spentaDalSistema = true; } }
+    else if (spentaDalSistema) { spentaDalSistema = false; proponiFotocamera(); }
+  });
+  var spentaDalSistema = false;
 
   /* ---------- conteggio e viste ---------- */
 
@@ -674,6 +759,7 @@
     if (v === "riepilogo") disegnaRiepilogo();
     aggiornaConteggio();
     window.scrollTo(0, 0);
+    proponiFotocamera();
   }
   $("btn-vista").onclick = function () {
     if (vista === "inserimento") { if (inModifica) svuotaModulo(); mostraVista("riepilogo"); }
@@ -686,7 +772,7 @@
     dt.textContent = nome; dd.textContent = valore;
     dl.appendChild(dt); dl.appendChild(dd);
   }
-  var NOMI_UNITA = { G: "gr", KG: "kg", ML: "ml", LT: "lt", PZ: "pezzi", UOVA: "uova", ROTOLI: "rotoli" };
+  var NOMI_UNITA = { G: "gr", KG: "kg", ML: "ml", CL: "cl", LT: "lt", PZ: "pezzi", UOVA: "uova", ROTOLI: "rotoli" };
 
   /* totale della spesa: prezzo della confezione × pezzi; chi non ha il prezzo resta fuori e lo dico */
   function disegnaTotale() {
@@ -734,9 +820,15 @@
 
       var dl = document.createElement("dl"); dl.className = "dettagli";
       if (nome && p.barcode) voce(dl, "Barcode", p.barcode);
-      voce(dl, "Quantità", p.quantita != null ? testoNumero(p.quantita) + " " + (NOMI_UNITA[p.unita] || "") : "");
+      var nu = " " + (NOMI_UNITA[p.unita] || ""), npz = p.perConfezione > 1 ? p.perConfezione : 1;
+      voce(dl, "Quantità", p.quantita == null ? "" : npz > 1
+        ? npz + " × " + testoNumero(Math.round(p.quantita / npz * 1000) / 1000) + nu + " = " + testoNumero(p.quantita) + nu
+        : testoNumero(p.quantita) + nu);
+      voce(dl, "Prezzo a pezzo", npz > 1 && p.prezzoConfezione != null ? euro(Math.round(p.prezzoConfezione / npz * 100 + 1e-6) / 100) + " €" : "");
       voce(dl, "Prezzo confezione", p.prezzoConfezione != null ? euro(p.prezzoConfezione) + " €" : "");
-      voce(dl, nomePrezzoUnitario(p.unita), p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
+      voce(dl, nomePrezzoUnitario(p.unita) + (p.scontato ? " scontato" : ""), p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
+      var pieno = p.scontato && p.scontoPerc ? kgPieno(p.prezzoKgLt, true, p.scontoPerc) : null;
+      voce(dl, nomePrezzoUnitario(p.unita) + " pieno", pieno != null ? euro(pieno) + " €" : "");
       voce(dl, "Scontato", p.scontato ? "Sì" + (p.scontoPerc ? ", " + testoNumero(p.scontoPerc) + "%" : "") : "");
       voce(dl, "Scadenza", dataIt(p.scadenza));
       voce(dl, "Inserito", (p.dataOra || "").slice(11));
@@ -835,6 +927,7 @@
       prodotti: stato.prodotti.map(function (p) {
         return {
           id: p.id, dataOra: p.dataOra, barcode: p.barcode, pezzi: p.pezzi, quantita: p.quantita, unita: p.unita,
+          perConfezione: p.perConfezione || 1,
           prezzoKgLt: p.prezzoKgLt, prezzoConfezione: p.prezzoConfezione, scontato: p.scontato,
           scontoPerc: p.scontoPerc, scadenza: p.scadenza,
           marca: p.marca || "", alimento: p.alimento || "", aggiornaAnagrafica: !!p.aggiornaAnagrafica
@@ -868,6 +961,7 @@
   ricalcola();
   mostraStato();
   aggiornaConteggio();
+  proponiFotocamera();
 })();
 </script>
 </body>
