@@ -159,6 +159,11 @@
   .vuoto-lista { text-align: center; color: var(--ink-2); padding: 30px 16px; }
   .negozio-riep { background: var(--card); border-radius: var(--raggio); padding: 14px 16px; font-size: 16px; }
   .negozio-riep span { color: var(--ink-2); display: block; font-size: 13px; text-transform: uppercase; margin-bottom: 2px; }
+  /* ---------- busta del banco ---------- */
+  .gruppo.banco .normale { display: none !important; }
+  .voce-testa { min-height: 34px !important; font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--ink-2); justify-content: space-between; }
+  .voce-testa button { color: var(--rosso); font-size: 14px; font-weight: 600; text-transform: none; padding: 4px 0 4px 12px; }
+  .riep-nota { font-size: 13px; color: var(--ink-2); display: block; margin-top: 4px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -206,23 +211,28 @@
         <div class="mirino"></div>
         <div class="camera-msg" id="camera-msg"></div>
       </div>
-      <div class="gruppo">
+      <div class="gruppo" id="gruppo-prodotto">
         <div class="riga">
           <label for="barcode">Barcode</label>
           <input id="barcode" inputmode="numeric" placeholder="Scrivi o leggi" autocomplete="off">
           <button class="btn-scan" id="btn-camera" type="button">Fotocamera</button>
         </div>
         <div class="riga">
+          <label for="banco">Busta del banco</label>
+          <input type="checkbox" id="banco">
+          <span class="calcolato" style="margin-left: auto">più prodotti, un'etichetta</span>
+        </div>
+        <div class="riga normale">
           <label for="marca">Marca</label>
           <input id="marca" placeholder="Es. GRANAROLO" autocomplete="off" autocapitalize="characters">
           <button class="btn-mic" id="mic-marca" type="button" aria-label="detta la marca" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="alimento">Alimento</label>
           <input id="alimento" placeholder="Es. LATTE INTERO" autocomplete="off" autocapitalize="characters">
           <button class="btn-mic" id="mic-alimento" type="button" aria-label="detta l'alimento" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <span class="nome">Pezzi</span>
           <div class="stepper">
             <button type="button" id="meno" aria-label="un pezzo in meno">−</button>
@@ -230,12 +240,12 @@
             <button type="button" id="piu" aria-label="un pezzo in più">+</button>
           </div>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="per-conf">Confezione da</label>
           <input id="per-conf" inputmode="numeric" placeholder="1" autocomplete="off">
           <span class="eur">pz</span>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="quantita" id="label-quantita">Quantità</label>
           <input id="quantita" inputmode="decimal" placeholder="Es. 500" autocomplete="off">
           <select id="unita" class="piccolo" aria-label="unità">
@@ -249,46 +259,69 @@
             <option value="ROTOLI">rotoli</option>
           </select>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="prezzo-conf" id="label-prezzo-conf">Prezzo confezione</label>
           <input id="prezzo-conf" inputmode="decimal" placeholder="0,00" autocomplete="off">
           <span class="eur">€</span>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="scontato">Scontato</label>
           <input type="checkbox" id="scontato">
           <input id="sconto-perc" list="percentuali" inputmode="decimal" placeholder="scegli o scrivi" autocomplete="off" disabled aria-label="percentuale di sconto">
           <datalist id="percentuali"></datalist>
           <span class="eur">%</span>
         </div>
-        <div class="riga" id="riga-prezzo-pieno" hidden>
+        <div class="riga normale" id="riga-prezzo-pieno" hidden>
           <label for="prezzo-pieno">Prezzo pieno</label>
           <span class="calcolato" id="calcolato-pieno"></span>
           <input id="prezzo-pieno" inputmode="decimal" placeholder="0,00" autocomplete="off">
           <span class="eur">€</span>
         </div>
-        <div class="riga">
+        <div class="riga normale">
           <label for="prezzo-kg" id="label-kg">Prezzo al kg</label>
           <span class="calcolato" id="calcolato"></span>
           <input id="prezzo-kg" inputmode="decimal" placeholder="0,00" autocomplete="off">
           <span class="eur">€</span>
         </div>
-        <div class="riga" id="riga-pieno" hidden>
+        <div class="riga normale" id="riga-pieno" hidden>
           <label for="prezzo-kg-pieno" id="label-pieno">Prezzo al kg pieno</label>
           <span class="calcolato">senza sconto</span>
           <input id="prezzo-kg-pieno" readonly tabindex="-1">
           <span class="eur">€</span>
         </div>
-        <div class="riga" id="riga-pezzo" hidden>
+        <div class="riga normale" id="riga-pezzo" hidden>
           <label for="prezzo-pezzo">Prezzo a pezzo</label>
           <span class="calcolato">calcolato</span>
           <input id="prezzo-pezzo" readonly tabindex="-1">
           <span class="eur">€</span>
         </div>
-        <div class="riga">
+        <div class="riga normale">
+          <label for="sfuso">Sfuso (sacchetto)</label>
+          <input type="checkbox" id="sfuso">
+          <span class="calcolato" style="margin-left: auto">frutta e verdura</span>
+        </div>
+        <div class="riga normale" id="riga-sacchetto" hidden>
+          <label for="prezzo-sacchetto">Sacchetto</label>
+          <span class="calcolato" id="addebito"></span>
+          <input id="prezzo-sacchetto" inputmode="decimal" placeholder="0,01" autocomplete="off">
+          <span class="eur">€</span>
+        </div>
+        <div class="riga normale">
           <label for="scadenza">Scadenza</label>
           <input type="date" id="scadenza">
         </div>
+        <div class="riga">
+          <label for="note-prodotto">Note</label>
+          <input id="note-prodotto" placeholder="Es. PER LA CENA" maxlength="200" autocomplete="off" autocapitalize="characters">
+          <button class="btn-mic" id="mic-note-prodotto" type="button" aria-label="detta la nota" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
+        </div>
+      </div>
+      <div id="banco-voci" hidden>
+        <div class="gruppo" id="elenco-voci" style="margin-top: 10px"></div>
+        <div class="fila" style="margin-top: 10px">
+          <button class="ghost" id="btn-voce" type="button">+ Aggiungi voce</button>
+        </div>
+        <div class="negozio-riep" id="totale-busta" style="margin-top: 10px"></div>
       </div>
       <p class="nota" id="nota-prodotto">Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.</p>
     </section>
@@ -303,6 +336,7 @@
   <div id="vista-riepilogo" style="display: contents" hidden>
     <div class="negozio-riep" id="riep-negozio"></div>
     <div id="riep-lista" style="display: flex; flex-direction: column; gap: 12px"></div>
+    <div class="negozio-riep" id="riep-sacchetti" hidden></div>
     <section id="riep-buste" hidden>
       <p class="label">Buste e scatole</p>
       <div class="gruppo">
@@ -335,6 +369,15 @@
       </div>
       <p class="nota">Contano negli articoli, come lo shopper nella riga «ART» dello scontrino, e nel totale.</p>
     </section>
+    <section id="riep-note" hidden>
+      <p class="label">Note della spesa</p>
+      <div class="gruppo">
+        <div class="riga">
+          <input id="note-spesa" placeholder="Es. SPESA PER LA SETTIMANA" maxlength="300" autocomplete="off" autocapitalize="characters" style="text-align: left" aria-label="note della spesa">
+          <button class="btn-mic" id="mic-note-spesa" type="button" aria-label="detta la nota della spesa" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></button>
+        </div>
+      </div>
+    </section>
     <div class="negozio-riep" id="riep-totale" hidden></div>
     <section>
       <button class="primary largo" id="btn-invia" type="button">Invia a n8n</button>
@@ -365,7 +408,7 @@
   /* ---------- memoria sul telefono (può mancare: la pagina funziona lo stesso) ---------- */
 
   var stato = { prodotti: [], idSpesa: "", oraPrimo: "", negozio: "", negozi: [], chiave: "", documento: "", dataScontrino: "", catalogo: {},
-    buste: 0, scatole: 0, prezzoBusta: 0.10, prezzoScatola: 0.75 };
+    buste: 0, scatole: 0, prezzoBusta: 0.10, prezzoScatola: 0.75, prezzoSacchetto: 0.01, note: "" };
   try {
     var salvato = JSON.parse(localStorage.getItem(MEMORIA) || "null");
     if (salvato && typeof salvato === "object") { for (var k in stato) if (salvato[k] !== undefined) stato[k] = salvato[k]; }
@@ -512,13 +555,18 @@
     ricalcolaKg();
     aggiornaPieno();
     aggiornaPezzo();
+    aggiornaSacchetto();
+  }
+  /* contenuto in kg, litri, uova o rotoli: è il divisore del prezzo unitario (null con i pezzi) */
+  function baseDi(q, u) {
+    return q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : u === "CL" ? q / 100 : (u === "KG" || u === "LT" || u === "UOVA" || u === "ROTOLI") ? q : null;
   }
   function ricalcolaKg() {
     var u = $("unita").value;
     if (kgAMano) { $("calcolato").textContent = ""; return; }
     var q = numero($("quantita").value), p = numero($("prezzo-conf").value);
     if (q != null) q = q * perConf();
-    var base = q == null || q === 0 ? null : (u === "G" || u === "ML") ? q / 1000 : u === "CL" ? q / 100 : (u === "KG" || u === "LT" || u === "UOVA" || u === "ROTOLI") ? q : null;
+    var base = baseDi(q, u);
     if (base && p != null) {
       $("prezzo-kg").value = euro(Math.round(p / base * 100) / 100);
       $("calcolato").textContent = "calcolato";
@@ -534,6 +582,111 @@
     kgAMano = this.value.trim() !== "";
     $("calcolato").textContent = "";
     if (!kgAMano) ricalcola(); else aggiornaPieno();
+  };
+
+  /* ---------- sacchetto dello sfuso (chiesto da Carlo il 26/11/2026) ---------- */
+  /* frutta e verdura sfuse: Esselunga addebita il sacchetto (0,01 € di partenza, correggibile: il prezzo
+     corretto resta per i prodotti dopo). Uno per pezzo. Il prezzo della confezione resta quello della
+     merce, così il prezzo al kg non cambia (1 kg a 10,00 € → 10,00 €/kg, addebito 10,01 €) */
+  function prezzoSacchetto() { var n = numero($("prezzo-sacchetto").value); return n == null ? stato.prezzoSacchetto : n; }
+  function aggiornaSacchetto() {
+    var sfuso = $("sfuso").checked, p = numero($("prezzo-conf").value);
+    $("riga-sacchetto").hidden = !sfuso;
+    $("addebito").textContent = sfuso && p != null ? "addebito " + euro(tondo(p + prezzoSacchetto())) + " €" : "";
+  }
+  $("sfuso").onchange = function () {
+    if (this.checked && numero($("prezzo-sacchetto").value) == null) $("prezzo-sacchetto").value = euro(stato.prezzoSacchetto);
+    aggiornaSacchetto();
+  };
+  $("prezzo-sacchetto").oninput = function () {
+    var n = numero(this.value);
+    if (n != null) { stato.prezzoSacchetto = n; salva(); }
+    aggiornaSacchetto();
+  };
+  $("prezzo-sacchetto").onchange = function () { if (numero(this.value) == null) this.value = euro(stato.prezzoSacchetto); aggiornaSacchetto(); };
+  $("prezzo-sacchetto").value = euro(stato.prezzoSacchetto);
+
+  /* ---------- busta del banco (chiesta da Carlo il 26/11/2026) ---------- */
+  /* al banco fresco più prodotti finiscono in una busta con un'etichetta sola, ma sullo scontrino sono
+     righe separate: la busta ha le sue voci (alimento, quantità, prezzo), ognuna conta un articolo e sul
+     foglio diventa una riga di RACCOLTE, legate da GRUPPO */
+  var vociBanco = [];
+  var UNITA_VOCE = [["G", "gr"], ["KG", "kg"], ["PZ", "pezzi"], ["ML", "ml"], ["LT", "lt"]];
+  function voceVuota() { return { alimento: "", quantita: "", unita: "G", prezzo: "" }; }
+  function kgVoce(v) {
+    var base = baseDi(numero(v.quantita), v.unita), p = numero(v.prezzo);
+    return base && p != null ? Math.round(p / base * 100) / 100 : null;
+  }
+  function vociPiene() {
+    return vociBanco.filter(function (v) { return v.alimento.trim() || numero(v.quantita) != null || numero(v.prezzo) != null; });
+  }
+  function aggiornaBusta() {
+    vociBanco.forEach(function (v, i) {
+      var k = kgVoce(v), el = $("voce-kg-" + i);
+      if (el) el.textContent = k == null ? "" : euro(k) + " €/" + (v.unita === "ML" || v.unita === "LT" ? "lt" : "kg");
+    });
+    var piene = vociPiene(), tot = 0, senza = 0;
+    piene.forEach(function (v) { var p = numero(v.prezzo); if (p == null) senza++; else tot += p; });
+    var box = $("totale-busta");
+    box.innerHTML = "<span>Totale busta</span>";
+    box.appendChild(document.createTextNode(euro(tondo(tot)) + " € · " + piene.length + (piene.length === 1 ? " voce" : " voci") +
+      (senza ? " (" + senza + " senza prezzo)" : "")));
+  }
+  function riga(html) { var d = document.createElement("div"); d.className = "riga"; d.innerHTML = html; return d; }
+  function disegnaVoci() {
+    var box = $("elenco-voci"); box.innerHTML = "";
+    vociBanco.forEach(function (v, i) {
+      var testa = riga('<span></span><button type="button">✕ Togli</button>');
+      testa.classList.add("voce-testa");
+      testa.firstChild.textContent = "Voce " + (i + 1);
+      testa.lastChild.setAttribute("aria-label", "togli la voce " + (i + 1));
+      testa.lastChild.id = "togli-voce-" + i;
+      testa.lastChild.onclick = function () {
+        fermaAscolto();
+        vociBanco.splice(i, 1);
+        if (!vociBanco.length) vociBanco.push(voceVuota());
+        disegnaVoci();
+      };
+      var ra = riga('<label>Alimento</label><input placeholder="Es. PROSCIUTTO COTTO" autocomplete="off" autocapitalize="characters">' +
+        '<button class="btn-mic" type="button" hidden>' + $("mic-marca").innerHTML + "</button>");
+      var ia = ra.querySelector("input"), ma = ra.querySelector("button");
+      ia.id = "voce-alimento-" + i; ra.firstChild.htmlFor = ia.id; ia.value = v.alimento;
+      ia.addEventListener("input", maiuscolo);
+      ia.addEventListener("input", function () { v.alimento = this.value; aggiornaBusta(); });
+      ma.id = "mic-voce-alimento-" + i; ma.hidden = !Riconoscitore; ma.setAttribute("aria-label", "detta l'alimento della voce " + (i + 1));
+      attaccaMic(ia.id, ma);   /* la riga non è ancora nella pagina: il pulsante lo passo io */
+      var rq = riga('<label>Quantità</label><input inputmode="decimal" placeholder="Es. 100" autocomplete="off"><select class="piccolo" aria-label="unità"></select>');
+      var iq = rq.querySelector("input"), su = rq.querySelector("select");
+      iq.id = "voce-quantita-" + i; rq.firstChild.htmlFor = iq.id; iq.value = v.quantita;
+      su.id = "voce-unita-" + i;
+      UNITA_VOCE.forEach(function (u) { var o = document.createElement("option"); o.value = u[0]; o.textContent = u[1]; su.appendChild(o); });
+      su.value = v.unita || "G";
+      iq.oninput = function () { v.quantita = this.value; aggiornaBusta(); };
+      su.onchange = function () { v.unita = this.value; aggiornaBusta(); };
+      var rp = riga('<label>Prezzo</label><span class="calcolato"></span><input inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="eur">€</span>');
+      var ip = rp.querySelector("input");
+      ip.id = "voce-prezzo-" + i; rp.firstChild.htmlFor = ip.id; ip.value = v.prezzo;
+      rp.querySelector(".calcolato").id = "voce-kg-" + i;
+      ip.oninput = function () { v.prezzo = this.value; aggiornaBusta(); };
+      [testa, ra, rq, rp].forEach(function (r) { box.appendChild(r); });
+    });
+    aggiornaBusta();
+  }
+  function applicaBanco() {
+    var si = $("banco").checked;
+    $("gruppo-prodotto").classList.toggle("banco", si);
+    $("banco-voci").hidden = !si;
+  }
+  $("banco").onchange = function () {
+    fermaAscolto();
+    if (this.checked && !vociBanco.length) { vociBanco.push(voceVuota()); disegnaVoci(); }
+    applicaBanco();
+    if (this.checked) nota("nota-prodotto", "Una voce per ogni prodotto della busta: sullo scontrino sono righe separate.");
+    else nota("nota-prodotto", NOTA_BASE);
+  };
+  $("btn-voce").onclick = function () {
+    vociBanco.push(voceVuota()); disegnaVoci();
+    $("voce-alimento-" + (vociBanco.length - 1)).focus();
   };
 
   $("barcode").oninput = function () {
@@ -555,6 +708,10 @@
   }
   $("marca").addEventListener("input", maiuscolo);
   $("alimento").addEventListener("input", maiuscolo);
+  $("note-prodotto").addEventListener("input", maiuscolo);
+  $("note-spesa").addEventListener("input", maiuscolo);
+  $("note-spesa").oninput = function () { stato.note = this.value; salva(); };
+  $("note-spesa").value = stato.note || "";
 
   /* microfono (chiesto da Carlo il 26/11/2026): pulsante accanto a marca e alimento. Quando la fotocamera
      legge un codice che l'anagrafica non conosce si apre da solo: prima ascolta la marca, poi l'alimento.
@@ -562,16 +719,21 @@
      non compaiono e si scrive a mano */
   var Riconoscitore = window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var NOTA_BASE = "Nessun campo è obbligatorio. Il prezzo è quello pagato, già scontato.";
-  var NOMI_CAMPO = { marca: "la marca", alimento: "l'alimento" };
+  var NOMI_CAMPO = { marca: "la marca", alimento: "l'alimento", "note-prodotto": "la nota", "note-spesa": "la nota della spesa" };
+  function nomeCampo(c) { return NOMI_CAMPO[c] || (/^voce-alimento-/.test(c) ? "l'alimento della voce" : "il campo"); }
+  /* le note si aggiungono a quello che c'è già; quella della spesa ha gli avvisi in fondo al Riepilogo */
+  function aggiunge(c) { return /^note-/.test(c); }
+  function doveAvvisi(c) { return c === "note-spesa" ? "nota-invio" : "nota-prodotto"; }
+  function testoBase(c) { return c === "note-spesa" ? "" : NOTA_BASE; }
   var rec = null;
-  if (Riconoscitore) { $("mic-marca").hidden = false; $("mic-alimento").hidden = false; }
+  if (Riconoscitore) ["mic-marca", "mic-alimento", "mic-note-prodotto", "mic-note-spesa"].forEach(function (b) { $(b).hidden = false; });
   function pulisciDettato(t) { return String(t || "").replace(/[.,;:!?]+\s*$/, "").replace(/\s+/g, " ").trim().toUpperCase(); }
   function fermaAscolto() {
     if (!rec) return;
     var r = rec; rec = null;
     r.onresult = r.onerror = r.onend = null;
     try { r.abort(); } catch (e) {}
-    $("mic-marca").classList.remove("ascolta"); $("mic-alimento").classList.remove("ascolta");
+    Array.prototype.forEach.call(document.querySelectorAll(".btn-mic.ascolta"), function (b) { b.classList.remove("ascolta"); });
   }
   /* ascolta una frase e la scrive nel campo; poi() parte solo se ha sentito qualcosa */
   function ascolta(campo, poi) {
@@ -580,42 +742,50 @@
     var r;
     try { r = new Riconoscitore(); } catch (e) { return; }
     r.lang = "it-IT"; r.interimResults = false; r.continuous = false; r.maxAlternatives = 1;
-    var sentito = false, guasto = false;
+    var sentito = false, guasto = false, avvisi = doveAvvisi(campo);
     r.onresult = function (ev) {
       var ris = ev.results[ev.results.length - 1];
       var t = pulisciDettato(ris && ris[0] && ris[0].transcript);
-      if (t) { sentito = true; $(campo).value = t; }
+      if (!t) return;
+      var el = $(campo); if (!el) return;
+      sentito = true;
+      el.value = aggiunge(campo) && el.value.trim() ? el.value.trim() + " " + t : t;
+      if (el.maxLength > 0) el.value = el.value.slice(0, el.maxLength);
+      el.dispatchEvent(new Event("input"));   /* chi ascolta il campo (nota della spesa, voce della busta) si aggiorna */
     };
     r.onerror = function (ev) {
       var e = (ev && ev.error) || "";
       if (e === "aborted") return;
       guasto = true;
-      nota("nota-prodotto", e === "not-allowed" || e === "service-not-allowed"
+      nota(avvisi, e === "not-allowed" || e === "service-not-allowed"
         ? "Il permesso del microfono è negato: riattivalo dalle impostazioni del sito, oppure scrivi a mano."
-        : e === "no-speech" ? "Non ho sentito niente: tocca il microfono accanto a " + NOMI_CAMPO[campo] + " per riprovare, o scrivi a mano."
+        : e === "no-speech" ? "Non ho sentito niente: tocca il microfono accanto a " + nomeCampo(campo) + " per riprovare, o scrivi a mano."
         : e === "network" ? "Il riconoscimento vocale ha bisogno della rete: scrivi a mano."
         : "Il microfono non ha funzionato (" + e + "): scrivi a mano.", "allarme");
     };
     r.onend = function () {
       if (rec !== r) return;
       rec = null;
-      $("mic-" + campo).classList.remove("ascolta");
-      if (sentito) { nota("nota-prodotto", NOTA_BASE); if (poi) poi(); }
-      else if (!guasto) nota("nota-prodotto", "Non ho sentito niente: tocca il microfono accanto a " + NOMI_CAMPO[campo] + " per riprovare, o scrivi a mano.", "allarme");
+      var b = $("mic-" + campo); if (b) b.classList.remove("ascolta");
+      if (sentito) { nota(avvisi, testoBase(campo)); if (poi) poi(); }
+      else if (!guasto) nota(avvisi, "Non ho sentito niente: tocca il microfono accanto a " + nomeCampo(campo) + " per riprovare, o scrivi a mano.", "allarme");
     };
     rec = r;
     $("mic-" + campo).classList.add("ascolta");
-    nota("nota-prodotto", "Ti ascolto: di' " + NOMI_CAMPO[campo] + ".", "ok");
-    try { r.start(); } catch (e) { fermaAscolto(); nota("nota-prodotto", NOTA_BASE); }
+    nota(avvisi, "Ti ascolto: di' " + nomeCampo(campo) + ".", "ok");
+    try { r.start(); } catch (e) { fermaAscolto(); nota(avvisi, testoBase(campo)); }
   }
-  ["marca", "alimento"].forEach(function (campo) {
-    $("mic-" + campo).onclick = function () {
-      if (rec && this.classList.contains("ascolta")) { fermaAscolto(); nota("nota-prodotto", NOTA_BASE); }
+  /* il microfono delle note e delle voci non parte mai da solo: solo toccando il pulsante */
+  function attaccaMic(campo, pulsante) {
+    (pulsante || $("mic-" + campo)).onclick = function () {
+      if (rec && this.classList.contains("ascolta")) { fermaAscolto(); nota(doveAvvisi(campo), testoBase(campo)); }
       else ascolta(campo, null);
     };
-  });
+  }
+  ["marca", "alimento", "note-prodotto", "note-spesa"].forEach(function (c) { attaccaMic(c); });
   /* codice sconosciuto: detta la marca e poi l'alimento (solo i campi ancora vuoti), poi si va alla quantità */
   function dettaIlNome() {
+    if ($("banco").checked) return false;   /* busta del banco: niente marca né alimento della scheda normale */
     var primo = !$("marca").value ? "marca" : !$("alimento").value ? "alimento" : "";
     if (!Riconoscitore || !primo) return false;
     var allaQuantita = function () { $("quantita").focus(); };
@@ -631,14 +801,14 @@
   var base = null;   /* marca, alimento e formato proposti dal catalogo: se li cambi, vanno in anagrafica */
   /* in anagrafica solo se c'è un barcode, almeno marca o alimento, e qualcosa è diverso da quanto proposto */
   function daMettereInAnagrafica(p, prima) {
-    if (!p.barcode || (!p.marca && !p.alimento)) return false;
+    if (p.banco || !p.barcode || (!p.marca && !p.alimento)) return false;   /* l'etichetta del banco non è un prodotto */
     if (!prima) return true;
     return p.marca !== (prima.marca || "") || p.alimento !== (prima.alimento || "") ||
       (p.quantita != null && (p.quantita !== prima.quantita || p.unita !== (prima.unita || "")));
   }
   function precompila(cod) {
     var c = stato.catalogo && stato.catalogo[cod];
-    if (!c || inModifica || cod === precompilato) return;
+    if (!c || inModifica || cod === precompilato || $("banco").checked) return;
     precompilato = cod;
     base = { marca: c.marca || "", alimento: c.alimento || "", quantita: c.quantita, unita: c.unita || "" };
     /* riempio solo i campi ancora vuoti: quello che hai già scritto non lo tocco */
@@ -667,7 +837,7 @@
   }
   /* dopo ogni aggiunta il catalogo del telefono si aggiorna: vale subito, anche senza rete */
   function aggiornaCatalogo(p) {
-    if (!p.barcode) return;
+    if (!p.barcode || p.banco) return;
     var s = p.scontato && p.scontoPerc ? p.scontoPerc / 100 : 0;
     var pieno = function (v) { return v == null ? null : s ? Math.round(v / (1 - s) * 100 + 1e-6) / 100 : v; };
     stato.catalogo = stato.catalogo || {};
@@ -687,6 +857,9 @@
     $("prezzo-pieno").value = ""; fontePrezzo = "pagato";
     $("scontato").checked = false; $("sconto-perc").value = ""; $("sconto-perc").disabled = true;
     $("scadenza").value = "";
+    $("sfuso").checked = false; $("prezzo-sacchetto").value = euro(stato.prezzoSacchetto);
+    $("note-prodotto").value = "";
+    $("banco").checked = false; vociBanco = []; disegnaVoci(); applicaBanco();
     fermaAscolto();
     pezzi = 1; kgAMano = false; inModifica = ""; precompilato = "";
     mostraPezzi(); ricalcola();
@@ -697,9 +870,26 @@
   }
 
   function leggiModulo() {
+    var nota_ = $("note-prodotto").value.replace(/\s+/g, " ").trim().toUpperCase();
+    if ($("banco").checked) {
+      /* busta del banco: solo barcode dell'etichetta, nota e voci; il resto della scheda non vale */
+      return {
+        banco: true, perConfezione: 1, barcode: $("barcode").value.replace(/\D/g, ""), marca: "", alimento: "", pezzi: 1,
+        quantita: null, unita: "", prezzoConfezione: null, prezzoPieno: null, fontePrezzo: "pagato", prezzoKgLt: null,
+        prezzoAMano: false, scontato: false, scontoPerc: null, scadenza: "", sfuso: false, sacchetto: null, note: nota_,
+        voci: vociPiene().map(function (v) {
+          var q = numero(v.quantita);
+          return { alimento: v.alimento.replace(/\s+/g, " ").trim().toUpperCase(), quantita: q, unita: q == null ? "" : v.unita,
+            prezzo: numero(v.prezzo), prezzoKg: kgVoce(v) };
+        })
+      };
+    }
     var n = perConf(), q = numero($("quantita").value);
     if (q != null) q = Math.round(q * n * 1000) / 1000;   /* contenuto totale della confezione */
     return {
+      sfuso: $("sfuso").checked,
+      sacchetto: $("sfuso").checked ? prezzoSacchetto() : null,
+      note: nota_,
       perConfezione: n,
       barcode: $("barcode").value.replace(/\D/g, ""),
       marca: $("marca").value.replace(/\s+/g, " ").trim().toUpperCase(),
@@ -736,12 +926,22 @@
     $("scadenza").value = p.scadenza || "";
     kgAMano = !!p.prezzoAMano;
     if (kgAMano) { $("prezzo-kg").value = euro(p.prezzoKgLt); $("calcolato").textContent = ""; }
+    $("sfuso").checked = !!p.sfuso;
+    $("prezzo-sacchetto").value = euro(p.sfuso && p.sacchetto != null ? p.sacchetto : stato.prezzoSacchetto);
+    $("note-prodotto").value = p.note || "";
+    $("banco").checked = !!p.banco;
+    vociBanco = (p.voci || []).map(function (v) {
+      return { alimento: v.alimento || "", quantita: v.quantita == null ? "" : testoNumero(v.quantita), unita: v.unita || "G", prezzo: euro(v.prezzo) };
+    });
+    if (p.banco && !vociBanco.length) vociBanco.push(voceVuota());
+    disegnaVoci(); applicaBanco();
     ricalcola();
   }
 
   $("btn-aggiungi").onclick = function () {
     var p = leggiModulo();
-    var qualcosa = p.barcode || p.marca || p.alimento || p.quantita != null || p.prezzoConfezione != null || p.prezzoKgLt != null || p.scontato || p.scadenza;
+    if (p.banco && !p.voci.length) { nota("nota-prodotto", "Scrivi almeno una voce della busta prima di aggiungere.", "allarme"); return; }
+    var qualcosa = p.banco || p.barcode || p.marca || p.alimento || p.quantita != null || p.prezzoConfezione != null || p.prezzoKgLt != null || p.scontato || p.scadenza || p.sfuso || p.note;
     if (!qualcosa) { nota("nota-prodotto", "Compila almeno un campo prima di aggiungere.", "allarme"); return; }
     spegni();
     if (inModifica) {
@@ -856,7 +1056,8 @@
     beep();
     spegni();
     /* marca o alimento mancano (codice non in anagrafica): si apre il microfono, dopo il bip */
-    if (Riconoscitore && (!$("marca").value || !$("alimento").value)) {
+    if ($("banco").checked) { $("voce-alimento-0") && $("voce-alimento-0").focus(); }
+    else if (Riconoscitore && (!$("marca").value || !$("alimento").value)) {
       setTimeout(function () { if (vista === "inserimento" && $("barcode").value === cod) dettaIlNome(); }, 350);
     } else $("quantita").focus();
   }
@@ -912,7 +1113,15 @@
   /* ---------- conteggio e viste ---------- */
 
   /* gli articoli contano anche buste e scatole: sullo scontrino lo shopper è una riga di ART N */
-  function totaleArticoli() { return stato.prodotti.reduce(function (t, p) { return t + (p.pezzi || 1); }, 0) + stato.buste + stato.scatole; }
+  /* la busta del banco conta una riga di scontrino per voce; il sacchetto dello sfuso non è un articolo */
+  function articoliDi(p) { return p.banco ? (p.voci || []).length : (p.pezzi || 1); }
+  function totaleArticoli() { return stato.prodotti.reduce(function (t, p) { return t + articoliDi(p); }, 0) + stato.buste + stato.scatole; }
+  /* sacchetti dello sfuso: uno per pezzo, già dentro l'addebito del prodotto */
+  function sacchettiSpesa() {
+    var n = 0, euroTot = 0;
+    stato.prodotti.forEach(function (p) { if (p.sfuso && !p.banco) { n += p.pezzi || 1; euroTot += (p.sacchetto || 0) * (p.pezzi || 1); } });
+    return { n: n, euro: tondo(euroTot) };
+  }
 
   /* ---------- buste e scatole di cartone (chiesto da Carlo il 26/11/2026) ---------- */
   /* nel riepilogo: quante, col prezzo a busta / a scatola (0,10 € e 0,75 € di partenza, correggibili:
@@ -974,9 +1183,14 @@
     var box = $("riep-totale"), totale = 0, senza = 0;
     box.hidden = stato.prodotti.length === 0;
     stato.prodotti.forEach(function (p) {
+      if (p.banco) {
+        (p.voci || []).forEach(function (v) { if (v.prezzo == null) senza++; else totale += v.prezzo; });
+        return;
+      }
       if (p.prezzoConfezione == null) senza++;
       else totale += p.prezzoConfezione * (p.pezzi || 1);
     });
+    totale += sacchettiSpesa().euro;   /* il sacchetto si paga anche se il prezzo del prodotto manca (come nel workflow) */
     totale += stato.buste * stato.prezzoBusta + stato.scatole * stato.prezzoScatola;
     box.innerHTML = "<span>Totale spesa</span>";
     var cifra = document.createElement("b"); cifra.style.fontSize = "22px";
@@ -1003,6 +1217,16 @@
     var lista = $("riep-lista"); lista.innerHTML = "";
     $("btn-invia").disabled = stato.prodotti.length === 0;
     $("riep-buste").hidden = stato.prodotti.length === 0;
+    $("riep-note").hidden = stato.prodotti.length === 0;
+    if (document.activeElement !== $("note-spesa")) $("note-spesa").value = stato.note || "";
+    /* sacchetti dello sfuso: solo per sapere quanti e quanto, sono già dentro i prezzi */
+    var sac = sacchettiSpesa(), boxSac = $("riep-sacchetti");
+    boxSac.hidden = sac.n === 0;
+    boxSac.innerHTML = "<span>Sacchetti dello sfuso</span>";
+    boxSac.appendChild(document.createTextNode(sac.n + (sac.n === 1 ? " sacchetto" : " sacchetti") + " · " + euro(sac.euro) + " €"));
+    var spieg = document.createElement("small"); spieg.className = "riep-nota";
+    spieg.textContent = "Già compresi negli addebiti dei prodotti: nel totale non si sommano di nuovo.";
+    boxSac.appendChild(spieg);
     mostraBuste();
     disegnaTotale();
     if (stato.prodotti.length === 0) {
@@ -1013,15 +1237,33 @@
     stato.prodotti.forEach(function (p, i) {
       var c = document.createElement("div"); c.className = "prodotto";
       var testa = document.createElement("div"); testa.className = "testa";
-      var nome = [p.marca, p.alimento].filter(Boolean).join(" · ");
+      var nome = p.banco ? "Busta del banco" : [p.marca, p.alimento].filter(Boolean).join(" · ");
       var cod = document.createElement("div"); cod.className = "codice" + (p.barcode || nome ? "" : " vuoto");
       if (nome) cod.style.fontFamily = "inherit";
       cod.textContent = (i + 1) + ". " + (nome || p.barcode || "senza barcode");
-      var pz = document.createElement("div"); pz.className = "pezzi"; pz.textContent = "× " + (p.pezzi || 1);
+      var nv = (p.voci || []).length;
+      var pz = document.createElement("div"); pz.className = "pezzi"; pz.textContent = p.banco ? nv + (nv === 1 ? " voce" : " voci") : "× " + (p.pezzi || 1);
       testa.appendChild(cod); testa.appendChild(pz); c.appendChild(testa);
 
       var dl = document.createElement("dl"); dl.className = "dettagli";
       if (nome && p.barcode) voce(dl, "Barcode", p.barcode);
+      if (p.banco) {
+        var totBusta = 0;
+        (p.voci || []).forEach(function (v, k) {
+          var u = NOMI_UNITA[v.unita] || "";
+          var parti = [v.quantita == null ? "" : testoNumero(v.quantita) + " " + u, v.prezzo == null ? "" : euro(v.prezzo) + " €",
+            v.prezzoKg == null ? "" : euro(v.prezzoKg) + " €/" + (v.unita === "ML" || v.unita === "LT" ? "lt" : "kg")].filter(Boolean);
+          voce(dl, v.alimento || "Voce " + (k + 1), parti.join(" · ") || "—");
+          if (v.prezzo != null) totBusta += v.prezzo;
+        });
+        voce(dl, "Totale busta", euro(tondo(totBusta)) + " €");
+        voce(dl, "Note", p.note);
+        voce(dl, "Inserito", (p.dataOra || "").slice(11));
+        c.appendChild(dl);
+        aggiungiPulsanti(c, p, i);
+        lista.appendChild(c);
+        return;
+      }
       var nu = " " + (NOMI_UNITA[p.unita] || ""), npz = p.perConfezione > 1 ? p.perConfezione : 1;
       voce(dl, "Quantità", p.quantita == null ? "" : npz > 1
         ? npz + " × " + testoNumero(Math.round(p.quantita / npz * 1000) / 1000) + nu + " = " + testoNumero(p.quantita) + nu
@@ -1032,14 +1274,24 @@
       var pienoConf = !conSconto ? null : p.prezzoPieno != null ? p.prezzoPieno
         : p.prezzoConfezione != null ? tondo(p.prezzoConfezione / (1 - p.scontoPerc / 100)) : null;
       voce(dl, "Prezzo pieno", pienoConf != null ? euro(pienoConf) + " €" : "");
+      if (p.sfuso) {
+        voce(dl, "Sacchetto", euro(p.sacchetto) + " €");
+        voce(dl, "Addebito", p.prezzoConfezione != null ? euro(tondo(p.prezzoConfezione + (p.sacchetto || 0))) + " €" : "");
+      }
       voce(dl, nomePrezzoUnitario(p.unita) + (p.scontato ? " scontato" : ""), p.prezzoKgLt != null ? euro(p.prezzoKgLt) + " €" : "");
       var pieno = p.scontato && p.scontoPerc ? kgPieno(p.prezzoKgLt, true, p.scontoPerc) : null;
       voce(dl, nomePrezzoUnitario(p.unita) + " pieno", pieno != null ? euro(pieno) + " €" : "");
       voce(dl, "Scontato", p.scontato ? "Sì" + (p.scontoPerc ? ", " + testoNumero(p.scontoPerc) + "%" : "") : "");
       voce(dl, "Scadenza", dataIt(p.scadenza));
+      voce(dl, "Note", p.note);
       voce(dl, "Inserito", (p.dataOra || "").slice(11));
       c.appendChild(dl);
+      aggiungiPulsanti(c, p, i);
+      lista.appendChild(c);
+    });
+  }
 
+  function aggiungiPulsanti(c, p, i) {
       var fila = document.createElement("div"); fila.className = "fila";
       var mod = document.createElement("button"); mod.className = "ghost"; mod.textContent = "Modifica";
       mod.onclick = function () {
@@ -1059,8 +1311,6 @@
         salva(); disegnaRiepilogo(); aggiornaConteggio();
       };
       fila.appendChild(mod); fila.appendChild(del); c.appendChild(fila);
-      lista.appendChild(c);
-    });
   }
 
   /* ---------- collegamento al foglio ---------- */
@@ -1130,20 +1380,24 @@
       chiave: stato.chiave,
       spesa: { idSpesa: stato.idSpesa, negozio: stato.negozio, oraPrimoProdotto: stato.oraPrimo, oraInvio: adesso(),
         documento: stato.documento, dataScontrino: stato.dataScontrino,
-        buste: stato.buste, prezzoBusta: stato.prezzoBusta, scatole: stato.scatole, prezzoScatola: stato.prezzoScatola },
+        buste: stato.buste, prezzoBusta: stato.prezzoBusta, scatole: stato.scatole, prezzoScatola: stato.prezzoScatola,
+        note: (stato.note || "").replace(/\s+/g, " ").trim().toUpperCase() },
       prodotti: stato.prodotti.map(function (p) {
         return {
           id: p.id, dataOra: p.dataOra, barcode: p.barcode, pezzi: p.pezzi, quantita: p.quantita, unita: p.unita,
           perConfezione: p.perConfezione || 1,
           prezzoKgLt: p.prezzoKgLt, prezzoConfezione: p.prezzoConfezione, scontato: p.scontato,
           scontoPerc: p.scontoPerc, scadenza: p.scadenza,
-          marca: p.marca || "", alimento: p.alimento || "", aggiornaAnagrafica: !!p.aggiornaAnagrafica
+          marca: p.marca || "", alimento: p.alimento || "", aggiornaAnagrafica: !!p.aggiornaAnagrafica,
+          sfuso: !!p.sfuso, sacchetto: p.sfuso ? p.sacchetto : null, note: p.note || "",
+          banco: !!p.banco, voci: p.banco ? p.voci || [] : []
         };
       })
     };
     chiama(corpo).then(function (d) {
       if (d && d.ok) {
         stato.prodotti = []; stato.idSpesa = ""; stato.oraPrimo = ""; stato.buste = 0; stato.scatole = 0;
+        stato.note = ""; $("note-spesa").value = "";
         stato.documento = ""; stato.dataScontrino = ""; mostraScontrino(); controllaDocumento();
         salva();
         disegnaRiepilogo(); aggiornaConteggio();
